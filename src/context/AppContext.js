@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState, useEffect, useCallback } from "react";
 
 const AppContext = createContext();
 
@@ -9,84 +9,99 @@ export function AppProvider({ children }) {
   const [corbeille, setCorbeille] = useState([]);
   const [hydrated, setHydrated] = useState(false);
 
-  // Charger depuis localStorage au démarrage
   useEffect(() => {
-    try {
-      const c = localStorage.getItem("candidatures");
-      const b = localStorage.getItem("corbeille");
-      if (c) setCandidatures(JSON.parse(c));
-      if (b) setCorbeille(JSON.parse(b));
-    } catch {}
-    setHydrated(true);
+    fetch("/api/candidatures")
+      .then((r) => r.json())
+      .then((data) => {
+        setCandidatures(data.candidatures || []);
+        setCorbeille(data.corbeille || []);
+        setHydrated(true);
+      });
   }, []);
 
-  // Sauvegarder à chaque changement
-  useEffect(() => {
-    if (!hydrated) return;
-    localStorage.setItem("candidatures", JSON.stringify(candidatures));
-  }, [candidatures, hydrated]);
-
-  useEffect(() => {
-    if (!hydrated) return;
-    localStorage.setItem("corbeille", JSON.stringify(corbeille));
-  }, [corbeille, hydrated]);
+  const save = useCallback((newCandidatures, newCorbeille) => {
+    fetch("/api/candidatures", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ candidatures: newCandidatures, corbeille: newCorbeille }),
+    });
+  }, []);
 
   function postuler(offre) {
     setCandidatures((prev) => {
       if (prev.find((c) => c.id === offre.id)) return prev;
-      return [...prev, {
-        ...offre,
-        statut: "sent",
-        datePostulation: new Date().toLocaleDateString("fr-FR"),
-      }];
+      const next = [...prev, { ...offre, statut: "sent", datePostulation: new Date().toLocaleDateString("fr-FR") }];
+      save(next, corbeille);
+      return next;
     });
   }
 
   function mettreEnAttente(offre) {
     setCandidatures((prev) => {
       if (prev.find((c) => c.id === offre.id)) return prev;
-      return [...prev, {
-        ...offre,
-        statut: "saved",
-        datePostulation: new Date().toLocaleDateString("fr-FR"),
-      }];
+      const next = [...prev, { ...offre, statut: "saved", datePostulation: new Date().toLocaleDateString("fr-FR") }];
+      save(next, corbeille);
+      return next;
     });
   }
 
   function changerStatut(id, statut) {
-    setCandidatures((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, statut } : c))
-    );
+    setCandidatures((prev) => {
+      const next = prev.map((c) => (c.id === id ? { ...c, statut } : c));
+      save(next, corbeille);
+      return next;
+    });
   }
 
   function mettreEnCorbeille(offre) {
-    setCorbeille((prev) => {
-      if (prev.find((c) => c.id === offre.id)) return prev;
-      return [...prev, offre];
+    setCandidatures((prev) => {
+      const next = prev.filter((c) => c.id !== offre.id);
+      setCorbeille((prevC) => {
+        const nextC = prevC.find((c) => c.id === offre.id) ? prevC : [...prevC, offre];
+        save(next, nextC);
+        return nextC;
+      });
+      return next;
     });
-    setCandidatures((prev) => prev.filter((c) => c.id !== offre.id));
   }
 
   function supprimer(id) {
-    const candidature = candidatures.find((c) => c.id === id);
-    if (candidature) setCorbeille((prev) => [...prev, candidature]);
-    setCandidatures((prev) => prev.filter((c) => c.id !== id));
+    setCandidatures((prev) => {
+      const candidature = prev.find((c) => c.id === id);
+      const next = prev.filter((c) => c.id !== id);
+      setCorbeille((prevC) => {
+        const nextC = candidature ? [...prevC, candidature] : prevC;
+        save(next, nextC);
+        return nextC;
+      });
+      return next;
+    });
   }
 
   function restaurer(id) {
-    const offre = corbeille.find((c) => c.id === id);
-    if (offre) {
-      setCandidatures((prev) => [...prev, offre]);
-      setCorbeille((prev) => prev.filter((c) => c.id !== id));
-    }
+    setCorbeille((prevC) => {
+      const offre = prevC.find((c) => c.id === id);
+      const nextC = prevC.filter((c) => c.id !== id);
+      setCandidatures((prev) => {
+        const next = offre ? [...prev, offre] : prev;
+        save(next, nextC);
+        return next;
+      });
+      return nextC;
+    });
   }
 
   function restaurerDansOffres(id) {
-    setCorbeille((prev) => prev.filter((c) => c.id !== id));
+    setCorbeille((prev) => {
+      const next = prev.filter((c) => c.id !== id);
+      save(candidatures, next);
+      return next;
+    });
   }
 
   function viderCorbeille() {
     setCorbeille([]);
+    save(candidatures, []);
   }
 
   if (!hydrated) return null;
@@ -96,7 +111,7 @@ export function AppProvider({ children }) {
       candidatures, corbeille,
       postuler, mettreEnAttente, changerStatut,
       supprimer, mettreEnCorbeille,
-      restaurer, restaurerDansOffres, viderCorbeille
+      restaurer, restaurerDansOffres, viderCorbeille,
     }}>
       {children}
     </AppContext.Provider>
