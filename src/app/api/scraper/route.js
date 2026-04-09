@@ -1,15 +1,19 @@
-import { exec } from "child_process";
-import { promisify } from "util";
-import path from "path";
+import { Redis } from "@upstash/redis";
 
-const execAsync = promisify(exec);
+const redis = new Redis({
+  url: process.env.KV_REST_API_URL,
+  token: process.env.KV_REST_API_TOKEN,
+});
 
-export async function POST() {
+export async function GET() {
   try {
-    const scriptPath = path.join(process.cwd(), "scraper", "scraper.py");
-    const { stdout } = await execAsync(`python "${scriptPath}"`);
-    return Response.json({ success: true, output: stdout });
+    const data = await redis.get("offres");
+    if (!data) {
+      return Response.json({ last_update: null, total: 0, offres: [] });
+    }
+    const parsed = typeof data === "string" ? JSON.parse(data) : data;
+    return Response.json(parsed);
   } catch (error) {
-    return Response.json({ success: false, error: error.message }, { status: 500 });
+    return Response.json({ last_update: null, total: 0, offres: [] });
   }
 }
