@@ -26,7 +26,7 @@ async function getTokenFT() {
   return data.access_token;
 }
 
-async function scrapeFramceTravail(token) {
+async function scrapeFranceTravail(token) {
   const offres = [];
   for (const keyword of KEYWORDS) {
     try {
@@ -83,13 +83,12 @@ export async function POST() {
   try {
     const token = await getTokenFT();
     const [ftOffres, gjOffres] = await Promise.all([
-      scrapeFramceTravail(token),
+      scrapeFranceTravail(token),
       scrapeGoogleJobs(),
     ]);
 
     const all = [...ftOffres, ...gjOffres];
 
-    // Dédoublonner
     const seen = new Set();
     const unique = all.filter((o) => {
       if (seen.has(o.id)) return false;
