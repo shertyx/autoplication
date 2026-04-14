@@ -171,7 +171,7 @@ async function scrapeFranceTravail(token, keywords, location) {
         `https://api.francetravail.io/partenaire/offresdemploi/v2/offres/search?motsCles=${encodeURIComponent(keyword + " " + ville)}&nbResultats=20`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      await redis.incr("quota:francetravail");
+      await redis.incr("quota:francetravail:calls");
       const text = await res.text();
       if (!text) { console.log(`[FT] "${keyword}": réponse vide (status ${res.status})`); continue; }
       const data = JSON.parse(text);
@@ -309,6 +309,7 @@ export async function POST() {
     ]);
 
     console.log(`[SCRAPER] FT=${ftOffres.length} GJ=${gjOffres.length} JS=${jsOffres.length}`);
+    await redis.set("quota:francetravail", { count: ftOffres.length }, { ex: 60 * 60 * 24 });
     const all = [...ftOffres, ...gjOffres, ...jsOffres];
     const seen = new Set();
     const unique = all.filter((o) => {

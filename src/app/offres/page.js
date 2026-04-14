@@ -162,15 +162,20 @@ export default function Offres() {
       {quota && (
         <div className="animate-in mobile-wrap" style={{ display: "flex", gap: "8px", marginBottom: "16px", flexWrap: "wrap" }}>
           {[
-            { label: "France Travail", data: quota.franceTravail, color: "#58a6ff", hasLimit: false },
-            { label: "SerpAPI", data: quota.googleJobs, color: "#3fb950", hasLimit: true },
-            { label: "JSearch", data: quota.jsearch, color: "#bc8cff", hasLimit: true },
-            { label: "Gemini", data: quota.gemini, color: "#d29922", hasLimit: false },
-          ].map(({ label, data, color, hasLimit }) => {
+            { label: "France Travail", data: quota.franceTravail, color: "#58a6ff", type: "offres" },
+            { label: "SerpAPI",        data: quota.googleJobs,    color: "#3fb950", type: "quota" },
+            { label: "JSearch",        data: quota.jsearch,       color: "#bc8cff", type: "quota" },
+            { label: "Gemini",         data: quota.gemini,        color: "#d29922", type: "calls" },
+          ].map(({ label, data, color, type }) => {
             if (!data) return null;
-            const pct = hasLimit && data.limit ? Math.round((data.remaining ?? 0) / data.limit * 100) : null;
+            const pct = type === "quota" && data.limit ? Math.round((data.remaining ?? 0) / data.limit * 100) : null;
             const low = pct !== null && pct < 20;
             const displayColor = low ? "#f85149" : color;
+            const valueText = type === "quota"
+              ? `${data.remaining ?? "?"}${data.limit ? `/${data.limit}` : ""} restants`
+              : type === "offres"
+                ? `${data.count ?? 0} offres trouvées`
+                : `${data.used ?? 0} appels`;
             return (
               <div key={label} style={{
                 fontSize: "11px", padding: "4px 10px",
@@ -180,11 +185,7 @@ export default function Offres() {
               }}>
                 <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: displayColor, display: "inline-block" }} />
                 <span style={{ color: "var(--text-secondary)", fontWeight: 500 }}>{label}</span>
-                {hasLimit && data.remaining != null ? (
-                  <span style={{ color: displayColor }}>{data.remaining}{data.limit ? `/${data.limit}` : ""} restants</span>
-                ) : (
-                  <span style={{ color: displayColor }}>{data.used} appels</span>
-                )}
+                <span style={{ color: displayColor }}>{valueText}</span>
               </div>
             );
           })}

@@ -26,9 +26,9 @@ export async function GET() {
   const jsearchQuota = await redis.get("quota:jsearch");
   if (jsearchQuota) quota.jsearch = jsearchQuota;
 
-  // France Travail — compteur d'appels (pas de quota strict, suivi informatif)
-  const ftUsed = await redis.get("quota:francetravail");
-  quota.franceTravail = { used: ftUsed ?? 0 };
+  // France Travail — nombre d'offres trouvées au dernier scraping
+  const ftData = await redis.get("quota:francetravail");
+  quota.franceTravail = ftData ?? { count: 0 };
 
   // Gemini — compteur stocké dans Redis
   const geminiUsed = await redis.get("quota:gemini");
