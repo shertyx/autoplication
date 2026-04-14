@@ -162,12 +162,13 @@ export default function Offres() {
       {quota && (
         <div className="animate-in mobile-wrap" style={{ display: "flex", gap: "8px", marginBottom: "16px", flexWrap: "wrap" }}>
           {[
-            { label: "SerpAPI", data: quota.serpapi, color: "#3fb950" },
-            { label: "JSearch", data: quota.jsearch, color: "#bc8cff" },
-            { label: "Gemini", data: quota.gemini, color: "#58a6ff" },
-          ].map(({ label, data, color }) => {
+            { label: "France Travail", data: quota.franceTravail, color: "#58a6ff", hasLimit: false },
+            { label: "Google Jobs", data: quota.googleJobs, color: "#3fb950", hasLimit: true },
+            { label: "JSearch", data: quota.jsearch, color: "#bc8cff", hasLimit: true },
+            { label: "Gemini", data: quota.gemini, color: "#d29922", hasLimit: false },
+          ].map(({ label, data, color, hasLimit }) => {
             if (!data) return null;
-            const pct = data.limit ? Math.round((data.remaining ?? 0) / data.limit * 100) : null;
+            const pct = hasLimit && data.limit ? Math.round((data.remaining ?? 0) / data.limit * 100) : null;
             const low = pct !== null && pct < 20;
             const displayColor = low ? "#f85149" : color;
             return (
@@ -179,12 +180,9 @@ export default function Offres() {
               }}>
                 <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: displayColor, display: "inline-block" }} />
                 <span style={{ color: "var(--text-secondary)", fontWeight: 500 }}>{label}</span>
-                {data.remaining != null && (
-                  <span style={{ color: displayColor }}>
-                    {label === "Gemini" ? `${data.used} appels` : `${data.remaining}${data.limit ? `/${data.limit}` : ""} restants`}
-                  </span>
-                )}
-                {data.remaining == null && data.used != null && (
+                {hasLimit && data.remaining != null ? (
+                  <span style={{ color: displayColor }}>{data.remaining}{data.limit ? `/${data.limit}` : ""} restants</span>
+                ) : (
                   <span style={{ color: displayColor }}>{data.used} appels</span>
                 )}
               </div>

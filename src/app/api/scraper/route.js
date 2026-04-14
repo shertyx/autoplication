@@ -75,6 +75,7 @@ async function scrapeFranceTravail(token, keywords, location) {
         `https://api.francetravail.io/partenaire/offresdemploi/v2/offres/search?motsCles=${encodeURIComponent(keyword)}&nbResultats=20`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
+      await redis.incr("quota:francetravail");
       const text = await res.text();
       if (!text) { console.log(`[FT] "${keyword}": réponse vide (status ${res.status})`); continue; }
       const data = JSON.parse(text);
