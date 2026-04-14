@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 
 export default function Profil() {
   const { data: session } = useSession();
@@ -11,6 +11,7 @@ export default function Profil() {
   const [ville, setVille] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [parsing, setParsing] = useState(false);
   const [parseError, setParseError] = useState(null);
 
@@ -42,6 +43,13 @@ export default function Profil() {
     } finally {
       setParsing(false);
     }
+  }
+
+  async function supprimerCompte() {
+    if (!confirm("Es-tu sûr ? Cette action supprime définitivement toutes tes données (candidatures, CV, messages, amis). Elle est irréversible.")) return;
+    setDeleting(true);
+    await fetch("/api/account/delete", { method: "DELETE" });
+    await signOut({ callbackUrl: "/login" });
   }
 
   async function sauvegarder() {
@@ -153,22 +161,38 @@ export default function Profil() {
         />
       </div>
 
-      {/* Bouton sauvegarder */}
-      <button
-        onClick={sauvegarder}
-        disabled={saving}
-        style={{
-          fontSize: "13px", padding: "8px 20px",
-          background: saved ? "rgba(63,185,80,0.15)" : saving ? "var(--bg-tertiary)" : "#238636",
-          border: "1px solid " + (saved ? "rgba(63,185,80,0.4)" : saving ? "var(--border)" : "#2ea043"),
-          borderRadius: "6px",
-          color: saved ? "#3fb950" : saving ? "var(--text-muted)" : "#fff",
-          cursor: saving ? "not-allowed" : "pointer",
-          transition: "all 0.2s",
-        }}
-      >
-        {saved ? "Sauvegardé !" : saving ? "Sauvegarde..." : "Sauvegarder"}
-      </button>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px" }}>
+        <button
+          onClick={sauvegarder}
+          disabled={saving}
+          style={{
+            fontSize: "13px", padding: "8px 20px",
+            background: saved ? "rgba(63,185,80,0.15)" : saving ? "var(--bg-tertiary)" : "#238636",
+            border: "1px solid " + (saved ? "rgba(63,185,80,0.4)" : saving ? "var(--border)" : "#2ea043"),
+            borderRadius: "6px",
+            color: saved ? "#3fb950" : saving ? "var(--text-muted)" : "#fff",
+            cursor: saving ? "not-allowed" : "pointer",
+            transition: "all 0.2s",
+          }}
+        >
+          {saved ? "Sauvegardé !" : saving ? "Sauvegarde..." : "Sauvegarder"}
+        </button>
+
+        <button
+          onClick={supprimerCompte}
+          disabled={deleting}
+          style={{
+            fontSize: "12px", padding: "8px 16px",
+            background: "transparent",
+            border: "1px solid rgba(248,81,73,0.3)",
+            borderRadius: "6px", color: "var(--danger)",
+            cursor: deleting ? "not-allowed" : "pointer",
+            transition: "all 0.2s",
+          }}
+        >
+          {deleting ? "Suppression..." : "Supprimer mon compte"}
+        </button>
+      </div>
     </main>
   );
 }

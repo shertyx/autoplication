@@ -4,6 +4,7 @@ import Navbar from "@/components/Navbar";
 import { AppProvider } from "@/context/AppContext";
 import PageTransition from "@/components/PageTransition";
 import SessionProviderWrapper from "@/components/SessionProviderWrapper";
+import ConsentBanner from "@/components/ConsentBanner";
 
 const geist = Geist({ subsets: ["latin"] });
 
@@ -22,6 +23,7 @@ export default function RootLayout({ children }) {
             <PageTransition>
               {children}
             </PageTransition>
+            <ConsentBanner />
           </AppProvider>
         </SessionProviderWrapper>
       </body>
