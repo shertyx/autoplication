@@ -20,6 +20,7 @@ export default function Offres() {
   const [loadingScores, setLoadingScores] = useState({});
   const [scraping, setScraping] = useState(false);
   const [scrapeMsg, setScrapeMsg] = useState(null);
+  const [quota, setQuota] = useState(null);
   const [filtre, setFiltre] = useState("toutes");
   const [sourceFiltre, setSourceFiltre] = useState("toutes");
   const [recherche, setRecherche] = useState("");
@@ -27,7 +28,15 @@ export default function Offres() {
   const candidatureIds = new Set(candidatures.map((c) => c.id));
   const corbeilleIds = new Set((corbeille || []).map((c) => c.id));
 
-  useEffect(() => { fetchOffres(); }, []);
+  useEffect(() => { fetchOffres(); fetchQuota(); }, []);
+
+  async function fetchQuota() {
+    try {
+      const res = await fetch("/api/quota");
+      const data = await res.json();
+      setQuota(data);
+    } catch {}
+  }
 
   async function fetchOffres() {
     const res = await fetch("/api/offres");
@@ -149,6 +158,40 @@ export default function Offres() {
           </button>
         </div>
       </div>
+
+      {quota && (
+        <div className="animate-in mobile-wrap" style={{ display: "flex", gap: "8px", marginBottom: "16px", flexWrap: "wrap" }}>
+          {[
+            { label: "SerpAPI", data: quota.serpapi, color: "#3fb950" },
+            { label: "JSearch", data: quota.jsearch, color: "#bc8cff" },
+            { label: "Gemini", data: quota.gemini, color: "#58a6ff" },
+          ].map(({ label, data, color }) => {
+            if (!data) return null;
+            const pct = data.limit ? Math.round((data.remaining ?? 0) / data.limit * 100) : null;
+            const low = pct !== null && pct < 20;
+            const displayColor = low ? "#f85149" : color;
+            return (
+              <div key={label} style={{
+                fontSize: "11px", padding: "4px 10px",
+                background: "var(--bg-secondary)", border: `1px solid ${low ? "rgba(248,81,73,0.3)" : "var(--border)"}`,
+                borderRadius: "20px", color: "var(--text-muted)",
+                display: "flex", alignItems: "center", gap: "6px",
+              }}>
+                <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: displayColor, display: "inline-block" }} />
+                <span style={{ color: "var(--text-secondary)", fontWeight: 500 }}>{label}</span>
+                {data.remaining != null && (
+                  <span style={{ color: displayColor }}>
+                    {label === "Gemini" ? `${data.used} appels` : `${data.remaining}${data.limit ? `/${data.limit}` : ""} restants`}
+                  </span>
+                )}
+                {data.remaining == null && data.used != null && (
+                  <span style={{ color: displayColor }}>{data.used} appels</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {scrapeMsg && (
         <div className="animate-in" style={{

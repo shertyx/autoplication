@@ -26,6 +26,7 @@ Réponds UNIQUEMENT avec un tableau JSON de 5 strings, sans markdown. Ex: ["Dév
     const keywords = JSON.parse(text);
     if (Array.isArray(keywords) && keywords.length > 0) {
       console.log(`[KEYWORDS] Générés: ${keywords.join(", ")}`);
+      await redis.incr("quota:gemini");
       return keywords;
     }
   } catch (e) {
@@ -144,6 +145,13 @@ async function scrapeJSearch(keywords, location) {
           "X-RapidAPI-Host": "jsearch.p.rapidapi.com",
         },
       });
+      // Capturer le quota RapidAPI depuis les headers
+      const remaining = res.headers.get("x-ratelimit-requests-remaining");
+      const limit = res.headers.get("x-ratelimit-requests-limit");
+      if (remaining !== null) {
+        await redis.set("quota:jsearch", { remaining: parseInt(remaining), limit: parseInt(limit ?? 0) }, { ex: 86400 });
+      }
+
       const rawText = await res.text();
       let data;
       try { data = JSON.parse(rawText); } catch {
