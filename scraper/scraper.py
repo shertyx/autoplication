@@ -72,7 +72,7 @@ def get_offres_indeed(keyword):
                 "contrat": o.get("job_type", "N/A"),
                 "source": "Indeed",
                 "keyword": keyword,
-                "lien": o.get("related_links", [{}])[0].get("link", "#"),
+                "lien": (o.get("apply_options") or o.get("related_links") or [{}])[0].get("link") or f"https://www.google.com/search?q={o.get('title', keyword)}+{o.get('company_name', '')}+emploi",
                 "date": datetime.now().strftime("%d/%m/%Y"),
             })
         return offres
@@ -99,7 +99,7 @@ def get_offres_google_jobs(keyword):
                 "contrat": o.get("detected_extensions", {}).get("schedule_type", "N/A"),
                 "source": "Google Jobs",
                 "keyword": keyword,
-                "lien": o.get("related_links", [{}])[0].get("link", "#"),
+                "lien": (o.get("apply_options") or o.get("related_links") or [{}])[0].get("link") or f"https://www.google.com/search?q={o.get('title', keyword)}+{o.get('company_name', '')}+emploi",
                 "date": datetime.now().strftime("%d/%m/%Y"),
             })
         return offres

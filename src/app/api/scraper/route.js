@@ -70,7 +70,7 @@ async function scrapeGoogleJobs() {
           contrat: o.detected_extensions?.schedule_type ?? "N/A",
           source: "Google Jobs",
           keyword,
-          lien: o.related_links?.[0]?.link ?? "#",
+          lien: o.apply_options?.[0]?.link ?? o.related_links?.[0]?.link ?? `https://www.google.com/search?q=${encodeURIComponent((o.title ?? keyword) + " " + (o.company_name ?? "") + " emploi")}`,
           date: new Date().toLocaleDateString("fr-FR"),
         });
       }
