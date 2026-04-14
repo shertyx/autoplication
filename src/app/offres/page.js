@@ -163,7 +163,7 @@ export default function Offres() {
         <div className="animate-in mobile-wrap" style={{ display: "flex", gap: "8px", marginBottom: "16px", flexWrap: "wrap" }}>
           {[
             { label: "France Travail", data: quota.franceTravail, color: "#58a6ff", hasLimit: false },
-            { label: "Google Jobs", data: quota.googleJobs, color: "#3fb950", hasLimit: true },
+            { label: "SerpAPI", data: quota.googleJobs, color: "#3fb950", hasLimit: true },
             { label: "JSearch", data: quota.jsearch, color: "#bc8cff", hasLimit: true },
             { label: "Gemini", data: quota.gemini, color: "#d29922", hasLimit: false },
           ].map(({ label, data, color, hasLimit }) => {
