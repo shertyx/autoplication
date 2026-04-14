@@ -11,7 +11,7 @@ export const limiters = {
   // Routes IA coûteuses
   ai: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10, "1 h"), prefix: "rl:ai" }),
   // Scraping
-  scraper: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(15, "1 h"), prefix: "rl:scraper" }),
+  scraper: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(30, "1 h"), prefix: "rl:scraper" }),
   // Chat
   chat: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(60, "1 m"), prefix: "rl:chat" }),
   // Invitations / demandes d'ami / réponses / suppression compte
