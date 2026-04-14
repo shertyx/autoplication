@@ -52,7 +52,7 @@ export default function Amis() {
   }, [search]);
 
   function copyInviteLink() {
-    navigator.clipboard.writeText("https://autoplication.vercel.app");
+    navigator.clipboard.writeText("https://applify.vercel.app");
     setLinkCopied(true);
     setTimeout(() => setLinkCopied(false), 2500);
   }
@@ -88,7 +88,7 @@ export default function Amis() {
     <main style={{ maxWidth: "700px", margin: "0 auto", padding: "32px 16px" }}>
       <div className="animate-in" style={{ marginBottom: "28px" }}>
         <h1 style={{ fontSize: "20px", fontWeight: 600, color: "var(--text-primary)", marginBottom: "4px" }}>Amis</h1>
-        <p style={{ fontSize: "13px", color: "var(--text-secondary)" }}>Connecte-toi avec d'autres utilisateurs d'Autoplication</p>
+        <p style={{ fontSize: "13px", color: "var(--text-secondary)" }}>Connecte-toi avec d'autres utilisateurs d'Applify</p>
       </div>
 
       {/* Recherche */}

@@ -11,18 +11,18 @@ export default function PolitiqueConfidentialite() {
           Politique de confidentialité
         </h1>
         <p style={{ fontSize: "13px", color: "var(--text-muted)" }}>
-          Dernière mise à jour : avril 2025 · Autoplication
+          Dernière mise à jour : avril 2025 · Applify
         </p>
       </div>
 
       <div style={section}>
         <h2 style={h2}>1. Qui sommes-nous ?</h2>
-        <p style={p}>Autoplication est une plateforme de recherche d'emploi intelligente accessible sur autoplication.vercel.app. Elle est développée à titre personnel et non commercial.</p>
+        <p style={p}>Applify est une plateforme de recherche d'emploi intelligente accessible sur applify.vercel.app. Elle est développée à titre personnel et non commercial.</p>
       </div>
 
       <div style={section}>
         <h2 style={h2}>2. Données collectées</h2>
-        <p style={p}>Lors de l'utilisation d'Autoplication, les données suivantes sont collectées et stockées :</p>
+        <p style={p}>Lors de l'utilisation d'Applify, les données suivantes sont collectées et stockées :</p>
         <ul style={{ paddingLeft: "20px", margin: "0" }}>
           {[
             "Nom, adresse email et photo de profil (via connexion Google)",

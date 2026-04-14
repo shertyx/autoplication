@@ -32,7 +32,7 @@ export default function ConsentBanner() {
       boxShadow: "0 -4px 24px rgba(0,0,0,0.3)",
     }}>
       <p style={{ fontSize: "13px", color: "var(--text-secondary)", margin: 0, flex: 1, minWidth: "200px" }}>
-        Autoplication utilise des données personnelles (email, CV, candidatures) pour personnaliser ton expérience.{" "}
+        Applify utilise des données personnelles (email, CV, candidatures) pour personnaliser ton expérience.{" "}
         <Link href="/politique-confidentialite" style={{ color: "var(--accent)", textDecoration: "underline" }}>
           Politique de confidentialité
         </Link>

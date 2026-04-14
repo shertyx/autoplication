@@ -60,7 +60,7 @@ export default function Login() {
           color: "var(--text-primary)", marginBottom: "8px",
           letterSpacing: "-0.02em",
         }}>
-          Autoplication
+          Applify
         </h1>
         <p style={{
           fontSize: "14px", color: "var(--text-secondary)",

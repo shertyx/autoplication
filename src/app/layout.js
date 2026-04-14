@@ -9,7 +9,7 @@ import ConsentBanner from "@/components/ConsentBanner";
 const geist = Geist({ subsets: ["latin"] });
 
 export const metadata = {
-  title: "Autoplication",
+  title: "Applify",
   description: "Ta plateforme de recherche d'emploi intelligente",
 };
 
