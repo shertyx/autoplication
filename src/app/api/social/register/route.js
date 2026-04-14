@@ -8,7 +8,7 @@ export async function POST() {
   const session = await auth();
   if (!session?.user?.email) return Response.json({ success: false }, { status: 401 });
 
-  const blocked = await checkRateLimit(limiters.social, session.user.email);
+  const blocked = await checkRateLimit(limiters.register, session.user.email);
   if (blocked) return blocked;
 
   const { email, name, image } = session.user;

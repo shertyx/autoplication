@@ -49,8 +49,13 @@ export default function Navbar() {
 
   useEffect(() => {
     if (!session?.user) return;
-    // Enregistrer l'utilisateur au registre
-    fetch("/api/social/register", { method: "POST" });
+    // Enregistrer l'utilisateur au registre une seule fois par session navigateur
+    const key = `registered_${session.user.email}`;
+    if (!sessionStorage.getItem(key)) {
+      fetch("/api/social/register", { method: "POST" }).then(() => {
+        sessionStorage.setItem(key, "1");
+      });
+    }
     // Charger les notifications
     loadNotifs();
     const interval = setInterval(loadNotifs, 30000);

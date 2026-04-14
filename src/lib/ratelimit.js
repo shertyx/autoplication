@@ -24,6 +24,8 @@ export const limiters = {
   notifications: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(240, "1 h"), prefix: "rl:notif" }),
   // Recherche utilisateurs
   search: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(60, "1 h"), prefix: "rl:search" }),
+  // Enregistrement au registre (appelé à chaque session)
+  register: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(20, "1 h"), prefix: "rl:register" }),
 };
 
 export async function checkRateLimit(limiter, identifier) {
