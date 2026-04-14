@@ -25,6 +25,7 @@ export default function Amis() {
   const [searching, setSearching] = useState(false);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("friends");
+  const [inviteSent, setInviteSent] = useState({});
 
   useEffect(() => { loadFriends(); }, []);
 
@@ -49,6 +50,15 @@ export default function Amis() {
     }, 400);
     return () => clearTimeout(t);
   }, [search]);
+
+  async function sendInvite(email) {
+    await fetch("/api/social/invite", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ toEmail: email }),
+    });
+    setInviteSent((prev) => ({ ...prev, [email]: true }));
+  }
 
   async function sendRequest(toEmail) {
     await fetch("/api/social/friends/request", {
@@ -94,6 +104,36 @@ export default function Amis() {
           style={{ width: "100%", marginBottom: results.length ? "12px" : 0 }}
         />
         {searching && <p style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "8px" }}>Recherche...</p>}
+
+        {/* Invitation si email saisi mais aucun résultat */}
+        {!searching && search.includes("@") && results.length === 0 && search.length > 4 && (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0", borderTop: "1px solid var(--border)" }}>
+            <div>
+              <p style={{ fontSize: "13px", color: "var(--text-secondary)", margin: 0 }}>
+                Aucun compte trouvé pour <strong style={{ color: "var(--text-primary)" }}>{search}</strong>
+              </p>
+              <p style={{ fontSize: "11px", color: "var(--text-muted)", margin: "2px 0 0" }}>
+                Envoie-lui une invitation par email
+              </p>
+            </div>
+            <button
+              onClick={() => sendInvite(search)}
+              disabled={inviteSent[search]}
+              style={{
+                fontSize: "12px", padding: "5px 12px",
+                background: inviteSent[search] ? "rgba(63,185,80,0.1)" : "transparent",
+                border: "1px solid " + (inviteSent[search] ? "rgba(63,185,80,0.3)" : "var(--accent)"),
+                borderRadius: "6px",
+                color: inviteSent[search] ? "#3fb950" : "var(--accent)",
+                cursor: inviteSent[search] ? "default" : "pointer",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {inviteSent[search] ? "Invitation envoyée ✓" : "Inviter par email"}
+            </button>
+          </div>
+        )}
+
         {results.map((u) => {
           const isFriend = friends.some((f) => f.email === u.email);
           const isPending = sent.some((r) => r.email === u.email);
