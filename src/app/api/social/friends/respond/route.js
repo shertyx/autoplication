@@ -1,5 +1,7 @@
 import { Redis } from "@upstash/redis";
 import { auth } from "@/auth";
+import { limiters, checkRateLimit } from "@/lib/ratelimit";
+import { isValidEmail, badRequest } from "@/lib/validate";
 
 const redis = new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN });
 
@@ -7,13 +9,25 @@ export async function POST(request) {
   const session = await auth();
   if (!session?.user?.email) return Response.json({ success: false }, { status: 401 });
 
-  const { fromEmail, action } = await request.json(); // action: "accept" | "decline"
+  const blocked = await checkRateLimit(limiters.social, session.user.email);
+  if (blocked) return blocked;
+
+  const { fromEmail, action } = await request.json();
+
+  // Valider les entrées
+  if (!isValidEmail(fromEmail)) return badRequest("Email invalide");
+  if (action !== "accept" && action !== "decline") return badRequest("Action invalide");
+
   const uid = session.user.email;
   const me = { email: uid, name: session.user.name, image: session.user.image };
 
-  // Supprimer la demande des received
+  // IDOR fix : vérifier que fromEmail est bien dans les demandes reçues avant tout traitement
   const received = await redis.get(`requests:received:${uid}`);
-  const newReceived = (Array.isArray(received) ? received : []).filter((r) => r.email !== fromEmail);
+  const receivedList = Array.isArray(received) ? received : [];
+  const requestExists = receivedList.some((r) => r.email === fromEmail);
+  if (!requestExists) return Response.json({ success: false, error: "Demande introuvable" }, { status: 404 });
+
+  const newReceived = receivedList.filter((r) => r.email !== fromEmail);
   await redis.set(`requests:received:${uid}`, newReceived);
 
   // Supprimer la demande des sent de l'expéditeur

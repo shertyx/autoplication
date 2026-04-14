@@ -1,5 +1,6 @@
 import { Redis } from "@upstash/redis";
 import { auth } from "@/auth";
+import { limiters, checkRateLimit } from "@/lib/ratelimit";
 
 const redis = new Redis({
   url: process.env.KV_REST_API_URL,
@@ -29,6 +30,8 @@ export async function POST(request) {
   if (!session?.user?.email) {
     return Response.json({ success: false }, { status: 401 });
   }
+  const blocked = await checkRateLimit(limiters.write, session.user.email);
+  if (blocked) return blocked;
   const uid = session.user.email;
   try {
     const { candidatures, corbeille } = await request.json();
@@ -36,6 +39,6 @@ export async function POST(request) {
     await redis.set(`corbeille:${uid}`, corbeille);
     return Response.json({ success: true });
   } catch (error) {
-    return Response.json({ success: false, error: error.message }, { status: 500 });
+    return Response.json({ success: false, error: "Erreur lors de la sauvegarde." }, { status: 500 });
   }
 }

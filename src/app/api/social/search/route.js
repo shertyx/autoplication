@@ -1,11 +1,15 @@
 import { Redis } from "@upstash/redis";
 import { auth } from "@/auth";
+import { limiters, checkRateLimit } from "@/lib/ratelimit";
 
 const redis = new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN });
 
 export async function GET(request) {
   const session = await auth();
   if (!session?.user?.email) return Response.json([], { status: 401 });
+
+  const blocked = await checkRateLimit(limiters.search, session.user.email);
+  if (blocked) return blocked;
 
   const { searchParams } = new URL(request.url);
   const q = searchParams.get("q")?.toLowerCase().trim();

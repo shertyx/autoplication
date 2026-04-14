@@ -1,6 +1,8 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { Redis } from "@upstash/redis";
 import { auth } from "@/auth";
+import { limiters, checkRateLimit } from "@/lib/ratelimit";
+import { sanitize, badRequest } from "@/lib/validate";
 
 const redis = new Redis({
   url: process.env.KV_REST_API_URL,
@@ -10,7 +12,17 @@ const redis = new Redis({
 export async function POST(request) {
   try {
     const session = await auth();
-    const { entreprise, poste, offre, ton } = await request.json();
+    if (!session?.user?.email) return Response.json({ error: "Non autorisé" }, { status: 401 });
+
+    const blocked = await checkRateLimit(limiters.ai, session.user.email);
+    if (blocked) return blocked;
+
+    const body = await request.json();
+    const entreprise = sanitize(body.entreprise, 200);
+    const poste = sanitize(body.poste, 200);
+    const offre = sanitize(body.offre, 5000);
+    const ton = ["professionnel", "dynamique", "concis"].includes(body.ton) ? body.ton : "professionnel";
+    if (!entreprise || !poste) return badRequest("Entreprise et poste requis");
 
     let profil = null;
     if (session?.user?.email) {
@@ -42,6 +54,6 @@ Rédige une lettre courte et percutante (~250 mots). Pas de formules bateau. Com
     if (error.message?.includes("429")) {
       return Response.json({ error: "Quota Gemini épuisé, réessaie demain." });
     }
-    return Response.json({ error: error.message }, { status: 500 });
+    return Response.json({ error: "Erreur lors de la génération." }, { status: 500 });
   }
 }
