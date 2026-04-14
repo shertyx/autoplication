@@ -25,8 +25,7 @@ export default function Amis() {
   const [searching, setSearching] = useState(false);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("friends");
-  const [inviteSent, setInviteSent] = useState({});
-  const [inviteError, setInviteError] = useState({});
+  const [linkCopied, setLinkCopied] = useState(false);
 
   useEffect(() => { loadFriends(); }, []);
 
@@ -52,19 +51,10 @@ export default function Amis() {
     return () => clearTimeout(t);
   }, [search]);
 
-  async function sendInvite(email) {
-    setInviteError((prev) => ({ ...prev, [email]: null }));
-    const res = await fetch("/api/social/invite", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ toEmail: email }),
-    });
-    const data = await res.json();
-    if (data.success) {
-      setInviteSent((prev) => ({ ...prev, [email]: true }));
-    } else {
-      setInviteError((prev) => ({ ...prev, [email]: data.error ?? "Erreur inconnue" }));
-    }
+  function copyInviteLink() {
+    navigator.clipboard.writeText("https://autoplication.vercel.app");
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2500);
   }
 
   async function sendRequest(toEmail) {
@@ -115,36 +105,31 @@ export default function Amis() {
         {/* Invitation si email saisi mais aucun résultat */}
         {!searching && search.includes("@") && results.length === 0 && search.length > 4 && (
           <div style={{ paddingTop: "12px", borderTop: "1px solid var(--border)" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" }}>
               <div>
                 <p style={{ fontSize: "13px", color: "var(--text-secondary)", margin: 0 }}>
                   Aucun compte trouvé pour <strong style={{ color: "var(--text-primary)" }}>{search}</strong>
                 </p>
                 <p style={{ fontSize: "11px", color: "var(--text-muted)", margin: "2px 0 0" }}>
-                  Envoie-lui une invitation par email
+                  Partage le lien de l'app pour l'inviter
                 </p>
               </div>
               <button
-                onClick={() => sendInvite(search)}
-                disabled={inviteSent[search]}
+                onClick={copyInviteLink}
                 style={{
                   fontSize: "12px", padding: "5px 12px",
-                  background: inviteSent[search] ? "rgba(63,185,80,0.1)" : "transparent",
-                  border: "1px solid " + (inviteSent[search] ? "rgba(63,185,80,0.3)" : "var(--accent)"),
+                  background: linkCopied ? "rgba(63,185,80,0.1)" : "transparent",
+                  border: "1px solid " + (linkCopied ? "rgba(63,185,80,0.3)" : "var(--accent)"),
                   borderRadius: "6px",
-                  color: inviteSent[search] ? "#3fb950" : "var(--accent)",
-                  cursor: inviteSent[search] ? "default" : "pointer",
+                  color: linkCopied ? "#3fb950" : "var(--accent)",
+                  cursor: "pointer",
                   whiteSpace: "nowrap",
+                  flexShrink: 0,
                 }}
               >
-                {inviteSent[search] ? "Invitation envoyée ✓" : "Inviter par email"}
+                {linkCopied ? "Lien copié ✓" : "Copier le lien"}
               </button>
             </div>
-            {inviteError[search] && (
-              <p style={{ fontSize: "11px", color: "var(--danger)", marginTop: "6px" }}>
-                Erreur : {inviteError[search]}
-              </p>
-            )}
           </div>
         )}
 
