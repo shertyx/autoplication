@@ -100,21 +100,26 @@ async function scrapeGoogleJobs(keywords, location) {
 }
 
 async function scrapeJSearch(keywords, location) {
-  if (!process.env.JSEARCH_API_KEY) return [];
+  if (!process.env.JSEARCH_API_KEY) {
+    console.log("[JS] Clé JSEARCH_API_KEY manquante, skip.");
+    return [];
+  }
   const offres = [];
   for (const keyword of keywords.slice(0, 2)) {
     try {
       const query = encodeURIComponent(`${keyword} ${location}`);
-      const res = await fetch(
-        `https://jsearch.p.rapidapi.com/search?query=${query}&page=1&num_pages=1&country=fr&language=fr`,
-        {
-          headers: {
-            "X-RapidAPI-Key": process.env.JSEARCH_API_KEY,
-            "X-RapidAPI-Host": "jsearch.p.rapidapi.com",
-          },
-        }
-      );
+      const url = `https://jsearch.p.rapidapi.com/search?query=${query}&page=1&num_pages=1&date_posted=month`;
+      const res = await fetch(url, {
+        headers: {
+          "X-RapidAPI-Key": process.env.JSEARCH_API_KEY,
+          "X-RapidAPI-Host": "jsearch.p.rapidapi.com",
+        },
+      });
       const data = await res.json();
+      if (data.status !== "OK") {
+        console.error(`[JS] "${keyword}": status=${data.status}`, JSON.stringify(data).slice(0, 200));
+        continue;
+      }
       console.log(`[JS] "${keyword}": ${data.data?.length ?? 0} résultats`);
       for (const o of data.data || []) {
         offres.push({
