@@ -23,6 +23,11 @@ async function getTokenFT() {
     }
   );
   const data = await res.json();
+  if (!data.access_token) {
+    console.error("[FT] Échec token:", JSON.stringify(data));
+  } else {
+    console.log("[FT] Token OK");
+  }
   return data.access_token;
 }
 
@@ -35,6 +40,7 @@ async function scrapeFranceTravail(token) {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       const data = await res.json();
+      console.log(`[FT] "${keyword}": status=${res.status}, resultats=${data.resultats?.length ?? 0}`, data.message ?? "");
       for (const o of data.resultats || []) {
         offres.push({
           id: `ft-${o.id}`,
@@ -48,7 +54,9 @@ async function scrapeFranceTravail(token) {
           date: new Date().toLocaleDateString("fr-FR"),
         });
       }
-    } catch {}
+    } catch (e) {
+      console.error(`[FT] Erreur "${keyword}":`, e.message);
+    }
   }
   return offres;
 }
@@ -74,7 +82,9 @@ async function scrapeGoogleJobs() {
           date: new Date().toLocaleDateString("fr-FR"),
         });
       }
-    } catch {}
+    } catch (e) {
+      console.error(`[GJ] Erreur "${keyword}":`, e.message);
+    }
   }
   return offres;
 }
