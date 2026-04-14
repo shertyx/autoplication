@@ -60,16 +60,18 @@ async function getTokenFT() {
   return data.access_token;
 }
 
-async function scrapeFranceTravail(token, keywords) {
+async function scrapeFranceTravail(token, keywords, location) {
   if (!token) {
     console.error("[FT] Token manquant, skip.");
     return [];
   }
+  // Extraire la ville pour l'inclure dans les mots-clés si possible
+  const ville = location.includes(",") ? location.split(",")[0].trim() : location;
   const offres = [];
   for (const keyword of keywords) {
     try {
       const res = await fetch(
-        `https://api.francetravail.io/partenaire/offresdemploi/v2/offres/search?motsCles=${encodeURIComponent(keyword)}&commune=59350&distance=30&nbResultats=10`,
+        `https://api.francetravail.io/partenaire/offresdemploi/v2/offres/search?motsCles=${encodeURIComponent(keyword)}&nbResultats=20`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       const text = await res.text();
@@ -132,10 +134,10 @@ async function scrapeJSearch(keywords, location) {
   // Extraire juste le pays (ex: "Lille, France" → "France")
   const country = location.includes(",") ? location.split(",").pop().trim() : location;
   const offres = [];
-  for (const keyword of keywords.slice(0, 3)) {
+  for (const keyword of keywords) {
     try {
       const query = encodeURIComponent(keyword);
-      const url = `https://jsearch.p.rapidapi.com/search?query=${query}&page=1&num_pages=1`;
+      const url = `https://jsearch.p.rapidapi.com/search?query=${query}&page=1&num_pages=2`;
       const res = await fetch(url, {
         headers: {
           "X-RapidAPI-Key": process.env.JSEARCH_API_KEY,
@@ -191,7 +193,7 @@ export async function POST() {
 
     const token = await getTokenFT();
     const [ftOffres, gjOffres, jsOffres] = await Promise.all([
-      scrapeFranceTravail(token, keywords),
+      scrapeFranceTravail(token, keywords, location),
       scrapeGoogleJobs(keywords, location),
       scrapeJSearch(keywords, location),
     ]);
