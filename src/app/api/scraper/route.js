@@ -115,8 +115,8 @@ async function scrapeJSearch(keywords, location) {
   const offres = [];
   for (const keyword of keywords.slice(0, 2)) {
     try {
-      const query = encodeURIComponent(`${keyword} ${country}`);
-      const url = `https://jsearch.p.rapidapi.com/search?query=${query}&page=1&num_pages=1&date_posted=month`;
+      const query = encodeURIComponent(keyword);
+      const url = `https://jsearch.p.rapidapi.com/search?query=${query}&page=1&num_pages=2`;
       const res = await fetch(url, {
         headers: {
           "X-RapidAPI-Key": process.env.JSEARCH_API_KEY,
@@ -133,7 +133,7 @@ async function scrapeJSearch(keywords, location) {
         console.error(`[JS] "${keyword}": status=${data.status} message=${data.message ?? JSON.stringify(data).slice(0, 150)}`);
         continue;
       }
-      console.log(`[JS] "${keyword}": ${data.data?.length ?? 0} résultats`);
+      console.log(`[JS] "${keyword}": ${data.data?.length ?? 0} résultats (http ${res.status})`);
       for (const o of data.data || []) {
         offres.push({
           id: `js-${o.job_id ?? Math.random()}`,
