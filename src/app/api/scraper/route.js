@@ -53,7 +53,9 @@ async function scrapeFranceTravail(token, keywords) {
         `https://api.francetravail.io/partenaire/offresdemploi/v2/offres/search?motsCles=${encodeURIComponent(keyword)}&commune=59350&distance=30&nbResultats=10`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      const data = await res.json();
+      const text = await res.text();
+      if (!text) { console.log(`[FT] "${keyword}": réponse vide (status ${res.status})`); continue; }
+      const data = JSON.parse(text);
       console.log(`[FT] "${keyword}": status=${res.status}, resultats=${data.resultats?.length ?? 0}`, data.message ?? "");
       for (const o of data.resultats || []) {
         offres.push({
