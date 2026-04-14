@@ -6,8 +6,9 @@ import { useRouter } from "next/navigation";
 
 const SOURCE_COLORS = {
   "France Travail": { color: "#58a6ff", bg: "rgba(88, 166, 255, 0.1)" },
-  "Google Jobs": { color: "#3fb950", bg: "rgba(63, 185, 80, 0.1)" },
-  "Indeed": { color: "#d29922", bg: "rgba(210, 153, 34, 0.1)" },
+  "Google Jobs":    { color: "#3fb950", bg: "rgba(63, 185, 80, 0.1)" },
+  "JSearch":        { color: "#bc8cff", bg: "rgba(188, 140, 255, 0.1)" },
+  "Indeed":         { color: "#d29922", bg: "rgba(210, 153, 34, 0.1)" },
 };
 
 export default function Offres() {
@@ -20,6 +21,7 @@ export default function Offres() {
   const [scraping, setScraping] = useState(false);
   const [scrapeMsg, setScrapeMsg] = useState(null);
   const [filtre, setFiltre] = useState("toutes");
+  const [sourceFiltre, setSourceFiltre] = useState("toutes");
   const [recherche, setRecherche] = useState("");
 
   const candidatureIds = new Set(candidatures.map((c) => c.id));
@@ -84,6 +86,8 @@ export default function Offres() {
     return { color: "#f85149", bg: "rgba(248,81,73,0.1)" };
   }
 
+  const sourcesDisponibles = [...new Set(offres.map((o) => o.source).filter(Boolean))];
+
   const offresFiltrees = (filtre === "corbeille"
     ? (corbeille || [])
     : offres.filter((o) => {
@@ -94,9 +98,10 @@ export default function Offres() {
         return true;
       })
   ).filter((o) =>
-    recherche === "" ||
-    o.titre?.toLowerCase().includes(recherche.toLowerCase()) ||
-    o.entreprise?.toLowerCase().includes(recherche.toLowerCase())
+    (sourceFiltre === "toutes" || o.source === sourceFiltre) &&
+    (recherche === "" ||
+      o.titre?.toLowerCase().includes(recherche.toLowerCase()) ||
+      o.entreprise?.toLowerCase().includes(recherche.toLowerCase()))
   );
 
   const filtres = [
@@ -163,7 +168,7 @@ export default function Offres() {
         style={{ width: "100%", marginBottom: "12px" }}
       />
 
-      <div style={{ display: "flex", gap: "6px", marginBottom: "20px" }}>
+      <div style={{ display: "flex", gap: "6px", marginBottom: "8px", flexWrap: "wrap" }}>
         {filtres.map((f) => (
           <button
             key={f.key}
@@ -194,6 +199,44 @@ export default function Offres() {
           </button>
         )}
       </div>
+
+      {sourcesDisponibles.length > 1 && (
+        <div style={{ display: "flex", gap: "6px", marginBottom: "16px", flexWrap: "wrap" }}>
+          <button
+            onClick={() => setSourceFiltre("toutes")}
+            style={{
+              fontSize: "11px", padding: "3px 10px",
+              background: sourceFiltre === "toutes" ? "var(--bg-tertiary)" : "transparent",
+              border: "1px solid " + (sourceFiltre === "toutes" ? "var(--border)" : "var(--border)"),
+              borderRadius: "20px",
+              color: sourceFiltre === "toutes" ? "var(--text-primary)" : "var(--text-muted)",
+              cursor: "pointer", transition: "all 0.15s",
+            }}
+          >
+            Toutes les sources
+          </button>
+          {sourcesDisponibles.map((src) => {
+            const s = SOURCE_COLORS[src] ?? { color: "#8b949e", bg: "rgba(139,148,158,0.1)" };
+            const count = offres.filter((o) => o.source === src).length;
+            return (
+              <button
+                key={src}
+                onClick={() => setSourceFiltre(src)}
+                style={{
+                  fontSize: "11px", padding: "3px 10px",
+                  background: sourceFiltre === src ? s.bg : "transparent",
+                  border: "1px solid " + (sourceFiltre === src ? s.color : "var(--border)"),
+                  borderRadius: "20px",
+                  color: sourceFiltre === src ? s.color : "var(--text-muted)",
+                  cursor: "pointer", transition: "all 0.15s",
+                }}
+              >
+                {src} · {count}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {offresFiltrees.length === 0 ? (
         <div style={{
