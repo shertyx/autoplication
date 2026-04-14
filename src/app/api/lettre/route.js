@@ -1,23 +1,34 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { Redis } from "@upstash/redis";
+import { auth } from "@/auth";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-
-const FELIX_PROFILE = `Félix Caron, 25 ans, Data Analyst / Ingénieur IA basé à Lille.
-Formation : Master Data & IA (Université Catholique de Lille, 2023-2025), Licence Informatique Générale, BTS SIO.
-Expérience : Développeur Data Junior chez CGI (2023-2025) — BigQuery, React, Unity 3D, Tibco, XML, JSON, API.
-Projet WasteNet : modèle CNN PyTorch de classification d'images de déchets.
-Compétences : Python, SQL, React, JavaScript, Java, HTML/CSS, BigQuery, NumPy, Power BI, Tableau, Git, API REST.
-Langues : Français natif, Anglais B2.`;
+const redis = new Redis({
+  url: process.env.KV_REST_API_URL,
+  token: process.env.KV_REST_API_TOKEN,
+});
 
 export async function POST(request) {
   try {
+    const session = await auth();
     const { entreprise, poste, offre, ton } = await request.json();
-    const genAI2 = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI2.getGenerativeModel({ model: "gemini-2.0-flash" });
+
+    let profil = null;
+    if (session?.user?.email) {
+      profil = await redis.get(`profil:${session.user.email}`);
+    }
+
+    const profilTexte = profil?.cv
+      ? `${profil.nom || session?.user?.name || ""}\n${profil.poste ? "Poste recherché : " + profil.poste : ""}\n${profil.ville ? "Ville : " + profil.ville : ""}\n\nCV :\n${profil.cv}`
+      : session?.user?.name
+        ? `Candidat : ${session.user.name} (CV non renseigné)`
+        : "Profil non renseigné.";
+
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
     const prompt = `Tu es expert en recrutement tech. Rédige une lettre de motivation en français.
 
-PROFIL : ${FELIX_PROFILE}
+PROFIL : ${profilTexte}
 POSTE : ${poste} chez ${entreprise}
 ${offre ? `OFFRE : ${offre}` : ""}
 TON : ${ton}
