@@ -11,6 +11,30 @@ const redis = new Redis({
 const DEFAULT_KEYWORDS = ["data analyst", "data engineer", "machine learning engineer", "AI engineer"];
 const DEFAULT_LOCATION = "Paris, France";
 
+function fallbackKeywords(poste) {
+  const base = poste.trim();
+  // Retirer les mots de séniorité pour avoir le titre brut
+  const stripped = base.replace(/\b(junior|senior|lead|chief|head|stagiaire|alternance|apprenti)\b/gi, "").replace(/\s+/g, " ").trim();
+  const keywords = new Set([base, stripped].filter(Boolean));
+  // Ajouter variante anglaise pour titres courants
+  const translations = {
+    "data analyst": ["Data Analyst", "Business Intelligence Analyst", "BI Analyst", "Data Scientist"],
+    "data engineer": ["Data Engineer", "Big Data Engineer", "ETL Developer", "Data Pipeline Engineer"],
+    "développeur": ["Développeur", "Software Engineer", "Developer", "Software Developer"],
+    "ingénieur ia": ["AI Engineer", "Machine Learning Engineer", "ML Engineer", "IA Engineer"],
+    "devops": ["DevOps Engineer", "SRE", "Infrastructure Engineer", "Cloud Engineer"],
+    "product manager": ["Product Manager", "Chef de produit", "PO", "Product Owner"],
+    "marketing digital": ["Digital Marketing Manager", "Marketing Manager", "Responsable Marketing Digital"],
+  };
+  const lower = stripped.toLowerCase();
+  for (const [key, vals] of Object.entries(translations)) {
+    if (lower.includes(key)) { vals.forEach((v) => keywords.add(v)); break; }
+  }
+  const result = [...keywords].slice(0, 5);
+  console.log(`[KEYWORDS] Fallback: ${result.join(", ")}`);
+  return result;
+}
+
 async function generateKeywords(profil) {
   if (!profil?.poste) return DEFAULT_KEYWORDS;
   try {
@@ -25,15 +49,14 @@ Réponds UNIQUEMENT avec un tableau JSON de 5 strings, sans markdown. Ex: ["Dév
     const text = result.response.text().replace(/```json|```/g, "").trim();
     const keywords = JSON.parse(text);
     if (Array.isArray(keywords) && keywords.length > 0) {
-      console.log(`[KEYWORDS] Générés: ${keywords.join(", ")}`);
+      console.log(`[KEYWORDS] Générés par IA: ${keywords.join(", ")}`);
       await redis.incr("quota:gemini");
       return keywords;
     }
   } catch (e) {
-    console.error("[KEYWORDS] Erreur Gemini:", e.message);
+    console.error(`[KEYWORDS] Gemini indisponible (${e.message?.slice(0, 50)}), fallback local.`);
   }
-  // Fallback simple si Gemini échoue
-  return [profil.poste.trim()];
+  return fallbackKeywords(profil.poste);
 }
 
 function getLocationFromProfile(profil) {
