@@ -9,8 +9,6 @@ const redis = new Redis({
   token: process.env.KV_REST_API_TOKEN,
 });
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-
 export async function POST(request) {
   try {
     const session = await auth();
@@ -49,6 +47,7 @@ ${offre}
 Réponds UNIQUEMENT en JSON valide, sans markdown, sans backticks :
 {"score": 75, "competences_ok": ["Python","SQL"], "competences_manquantes": ["Spark"], "resume": "3-4 phrases sur le match, points forts et points à améliorer."}`;
 
+    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
     const completion = await groq.chat.completions.create({
       model: "llama-3.1-8b-instant",
       messages: [{ role: "user", content: prompt }],

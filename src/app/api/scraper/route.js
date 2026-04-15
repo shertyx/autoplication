@@ -108,7 +108,7 @@ async function generateKeywords(profil, userEmail) {
 
   // Appel Groq (une seule fois, puis mis en cache 7 jours)
   try {
-    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY }); // instancié à la demande, pas au module
     const prompt = `Tu es un expert RH. Génère 5 intitulés de poste variés (français ET anglais) pour trouver un maximum d'offres d'emploi pour ce profil.
 Poste : ${profil.poste}
 ${profil.cv ? `CV (extrait) : ${profil.cv.slice(0, 500)}` : ""}
