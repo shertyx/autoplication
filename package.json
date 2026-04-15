@@ -12,6 +12,7 @@
     "@google/generative-ai": "^0.24.1",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.37.0",
+    "groq-sdk": "^1.1.2",
     "next": "16.2.2",
     "next-auth": "^5.0.0-beta.30",
     "nodemailer": "^7.0.13",

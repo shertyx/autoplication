@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import Groq from "groq-sdk";
 import { Redis } from "@upstash/redis";
 import { auth } from "@/auth";
 import { limiters, guestLimiters, checkRateLimit, getClientIp } from "@/lib/ratelimit";
@@ -9,7 +9,7 @@ const redis = new Redis({
   token: process.env.KV_REST_API_TOKEN,
 });
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 export async function POST(request) {
   try {
@@ -38,8 +38,6 @@ export async function POST(request) {
         ? `Candidat : ${session.user.name} (CV non renseigné)`
         : "Profil non renseigné.";
 
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
     const prompt = `Tu es un expert RH. Analyse la compatibilité entre ce profil et cette offre.
 
 PROFIL :
@@ -51,18 +49,20 @@ ${offre}
 Réponds UNIQUEMENT en JSON valide, sans markdown, sans backticks :
 {"score": 75, "competences_ok": ["Python","SQL"], "competences_manquantes": ["Spark"], "resume": "3-4 phrases sur le match, points forts et points à améliorer."}`;
 
-    const result = await model.generateContent(prompt);
-    const gKey = "quota:gemini:daily";
-    const newCount = await redis.incr(gKey);
-    if (newCount === 1) await redis.expire(gKey, 86400);
-    const text = result.response.text();
+    const completion = await groq.chat.completions.create({
+      model: "llama-3.1-8b-instant",
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.3,
+    });
+
+    const text = completion.choices[0]?.message?.content ?? "";
     const clean = text.replace(/```json|```/g, "").trim();
     const data = JSON.parse(clean);
     return Response.json(data);
   } catch (error) {
     const msg = error?.message ?? "";
-    if (msg.includes("429") || msg.includes("quota") || msg.includes("exhausted")) {
-      return Response.json({ error: "Quota Gemini épuisé, réessaie demain." }, { status: 429 });
+    if (msg.includes("429") || msg.includes("rate_limit") || msg.includes("quota")) {
+      return Response.json({ error: "Quota IA épuisé, réessaie dans quelques minutes." }, { status: 429 });
     }
     return Response.json({ error: "Erreur lors de l'analyse." }, { status: 500 });
   }

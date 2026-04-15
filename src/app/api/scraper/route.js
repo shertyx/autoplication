@@ -1,7 +1,7 @@
 import { Redis } from "@upstash/redis";
 import { auth } from "@/auth";
 import { limiters, guestLimiters, checkRateLimit, getClientIp } from "@/lib/ratelimit";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import Groq from "groq-sdk";
 
 const redis = new Redis({
   url: process.env.KV_REST_API_URL,
@@ -106,29 +106,28 @@ async function generateKeywords(profil, userEmail) {
     return cached;
   }
 
-  // Appel Gemini (une seule fois, puis mis en cache 7 jours)
+  // Appel Groq (une seule fois, puis mis en cache 7 jours)
   try {
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
     const prompt = `Tu es un expert RH. Génère 5 intitulés de poste variés (français ET anglais) pour trouver un maximum d'offres d'emploi pour ce profil.
 Poste : ${profil.poste}
 ${profil.cv ? `CV (extrait) : ${profil.cv.slice(0, 500)}` : ""}
 
 Réponds UNIQUEMENT avec un tableau JSON de 5 strings, sans markdown. Ex: ["Data Analyst","Business Analyst","BI Analyst","Analyste de données","Data Scientist"]`;
-    const result = await model.generateContent(prompt);
-    const text = result.response.text().replace(/```json|```/g, "").trim();
+    const completion = await groq.chat.completions.create({
+      model: "llama-3.1-8b-instant",
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.3,
+    });
+    const text = (completion.choices[0]?.message?.content ?? "").replace(/```json|```/g, "").trim();
     const keywords = JSON.parse(text);
     if (Array.isArray(keywords) && keywords.length > 0) {
       console.log(`[KEYWORDS] IA: ${keywords.join(", ")}`);
-      // Compteur journalier Gemini (TTL 24h)
-      const gKey = "quota:gemini:daily";
-      await redis.incr(gKey);
-      await redis.expire(gKey, 86400);
       await redis.set(cacheKey, keywords, { ex: 60 * 60 * 24 * 7 }); // cache 7 jours
       return keywords;
     }
   } catch (e) {
-    console.error(`[KEYWORDS] Gemini indisponible (${e.message?.slice(0, 60)}), fallback.`);
+    console.error(`[KEYWORDS] Groq indisponible (${e.message?.slice(0, 60)}), fallback.`);
   }
 
   // Fallback si Gemini échoue : dictionnaire de synonymes
@@ -306,6 +305,11 @@ export async function POST(request) {
 
   try {
     const profil = session?.user?.email ? await redis.get(`profil:${session.user.email}`) : null;
+
+    if (!profil?.poste?.trim() || !profil?.ville?.trim()) {
+      return Response.json({ success: false, error: "Complète ton profil (poste + ville) avant de lancer le scraping." }, { status: 400 });
+    }
+
     const userKey = session?.user?.email ?? `ip:${getClientIp(request)}`;
     const keywords = await generateKeywords(profil, userKey);
     const location = getLocationFromProfile(profil);

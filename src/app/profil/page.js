@@ -89,6 +89,20 @@ export default function Profil() {
   const label = { fontSize: "11px", color: "var(--text-muted)", display: "block", marginBottom: "6px", textTransform: "uppercase", letterSpacing: "0.06em" };
   const card = { background: "var(--bg-secondary)", border: "1px solid var(--border)", borderRadius: "8px", padding: "20px", marginBottom: "16px" };
 
+  const completion = Math.round(
+    (nom.trim() ? 15 : 0) +
+    (poste.trim() ? 30 : 0) +
+    (ville.trim() ? 25 : 0) +
+    (cv.trim().length > 100 ? 30 : cv.trim().length > 0 ? 15 : 0)
+  );
+  const completionColor = completion >= 70 ? "#3fb950" : completion >= 40 ? "#d29922" : "#f85149";
+  const missing = [
+    !nom.trim() && "Nom complet",
+    !poste.trim() && "Poste recherché",
+    !ville.trim() && "Ville",
+    cv.trim().length <= 100 && "CV (100+ caractères)",
+  ].filter(Boolean);
+
   return (
     <main style={{ maxWidth: "800px", margin: "0 auto", padding: "32px 16px" }}>
       <div className="animate-in" style={{ marginBottom: "28px" }}>
@@ -98,6 +112,34 @@ export default function Profil() {
         <p style={{ fontSize: "13px", color: "var(--text-secondary)" }}>
           Ton CV est utilisé pour personnaliser le scoring et les lettres de motivation
         </p>
+      </div>
+
+      <div className="animate-in" style={{ ...card, display: "flex", alignItems: "center", gap: "28px" }}>
+        <div style={{ textAlign: "center", flexShrink: 0 }}>
+          <div style={{ fontSize: "52px", fontWeight: 700, lineHeight: 1, color: completionColor }}>
+            {completion}%
+          </div>
+          <div style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "4px", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+            complété
+          </div>
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ background: "var(--bg-tertiary)", borderRadius: "4px", height: "6px", marginBottom: "12px", overflow: "hidden" }}>
+            <div style={{ height: "100%", width: `${completion}%`, background: completionColor, borderRadius: "4px", transition: "width 0.4s ease" }} />
+          </div>
+          {missing.length > 0 ? (
+            <p style={{ fontSize: "12px", color: "var(--text-muted)", margin: 0 }}>
+              Manque : <span style={{ color: "var(--text-secondary)" }}>{missing.join(", ")}</span>
+            </p>
+          ) : (
+            <p style={{ fontSize: "12px", color: "#3fb950", margin: 0 }}>Profil complet — scraping optimisé</p>
+          )}
+          {completion < 55 && (
+            <p style={{ fontSize: "11px", color: "#d29922", marginTop: "6px", marginBottom: 0 }}>
+              Le scraping nécessite au minimum le poste et la ville (55%)
+            </p>
+          )}
+        </div>
       </div>
 
       {isGuest && (

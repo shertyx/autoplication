@@ -188,8 +188,10 @@ export default function Offres() {
       {scrapeMsg && (
         <div className="animate-in" style={{
           marginBottom: "16px", padding: "10px 16px",
-          background: "rgba(63,185,80,0.1)", border: "1px solid rgba(63,185,80,0.3)",
-          borderRadius: "6px", fontSize: "13px", color: "#3fb950",
+          background: scrapeMsg.startsWith("Erreur") ? "rgba(248,81,73,0.1)" : "rgba(63,185,80,0.1)",
+          border: "1px solid " + (scrapeMsg.startsWith("Erreur") ? "rgba(248,81,73,0.3)" : "rgba(63,185,80,0.3)"),
+          borderRadius: "6px", fontSize: "13px",
+          color: scrapeMsg.startsWith("Erreur") ? "var(--danger)" : "#3fb950",
         }}>
           {scrapeMsg}
         </div>
