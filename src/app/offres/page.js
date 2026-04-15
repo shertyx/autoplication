@@ -108,7 +108,6 @@ export default function Offres() {
     : offres.filter((o) => {
         if (corbeilleIds.has(o.id)) return false;
         if (filtre === "masquees") return candidatureIds.has(o.id);
-        if (filtre === "toutes") return !candidatureIds.has(o.id);
         return true;
       })
   ).filter((o) =>
