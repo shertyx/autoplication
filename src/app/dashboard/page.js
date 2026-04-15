@@ -10,10 +10,19 @@ const STATUTS = {
   saved: { label: "Sauvegardé", color: "#bc8cff", bg: "rgba(188, 140, 255, 0.1)" },
 };
 
+function parseDate(str) {
+  if (!str) return 0;
+  const [d, m, y] = str.split("/");
+  return new Date(`${y}-${m}-${d}`).getTime();
+}
+
 export default function Dashboard() {
   const { candidatures, postuler, changerStatut, mettreEnCorbeille, analyses } = useApp();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ titre: "", entreprise: "", source: "LinkedIn", statut: "sent" });
+  const [recherche, setRecherche] = useState("");
+  const [tri, setTri] = useState("date_desc");
+  const [contratFiltre, setContratFiltre] = useState("tous");
 
   const stats = {
     total: candidatures.length,
@@ -30,6 +39,34 @@ export default function Dashboard() {
     setForm({ titre: "", entreprise: "", source: "LinkedIn", statut: "sent" });
     setShowForm(false);
   }
+
+  const candidaturesFiltrees = candidatures
+    .filter((c) => {
+      const q = recherche.toLowerCase();
+      const matchSearch = !q || c.titre?.toLowerCase().includes(q) || c.entreprise?.toLowerCase().includes(q);
+      const contrat = (c.contrat ?? "").toUpperCase();
+      const matchContrat =
+        contratFiltre === "tous" ||
+        (contratFiltre === "CDI" && contrat.includes("CDI")) ||
+        (contratFiltre === "CDD" && contrat.includes("CDD"));
+      return matchSearch && matchContrat;
+    })
+    .sort((a, b) => {
+      if (tri === "date_desc") return parseDate(b.datePostulation) - parseDate(a.datePostulation);
+      if (tri === "date_asc")  return parseDate(a.datePostulation) - parseDate(b.datePostulation);
+      if (tri === "match_desc") return (analyses[b.id]?.score ?? -1) - (analyses[a.id]?.score ?? -1);
+      if (tri === "match_asc")  return (analyses[a.id]?.score ?? 101) - (analyses[b.id]?.score ?? 101);
+      return 0;
+    });
+
+  const btnFilter = (active) => ({
+    fontSize: "12px", padding: "4px 12px",
+    background: active ? "var(--bg-tertiary)" : "transparent",
+    border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`,
+    borderRadius: "6px",
+    color: active ? "var(--accent)" : "var(--text-secondary)",
+    cursor: "pointer", transition: "all 0.15s",
+  });
 
   return (
     <main style={{ maxWidth: "900px", margin: "0 auto", padding: "32px 16px" }}>
@@ -85,14 +122,10 @@ export default function Dashboard() {
           <button
             onClick={() => setShowForm(!showForm)}
             style={{
-              fontSize: "12px",
-              padding: "5px 12px",
+              fontSize: "12px", padding: "5px 12px",
               background: showForm ? "var(--bg-tertiary)" : "transparent",
-              border: "1px solid var(--border)",
-              borderRadius: "6px",
-              color: "var(--text-secondary)",
-              cursor: "pointer",
-              transition: "all 0.15s",
+              border: "1px solid var(--border)", borderRadius: "6px",
+              color: "var(--text-secondary)", cursor: "pointer", transition: "all 0.15s",
             }}
           >
             + Ajouter
@@ -101,12 +134,9 @@ export default function Dashboard() {
 
         {showForm && (
           <div className="animate-in mobile-grid-1" style={{
-            padding: "16px 20px",
-            borderBottom: "1px solid var(--border)",
-            background: "var(--bg-primary)",
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: "12px",
+            padding: "16px 20px", borderBottom: "1px solid var(--border)",
+            background: "var(--bg-primary)", display: "grid",
+            gridTemplateColumns: "1fr 1fr", gap: "12px",
           }}>
             <div>
               <label style={{ fontSize: "11px", color: "var(--text-muted)", display: "block", marginBottom: "6px" }}>Poste</label>
@@ -147,82 +177,106 @@ export default function Dashboard() {
           </div>
         )}
 
-        {candidatures.length === 0 ? (
+        <div style={{ padding: "12px 20px", borderBottom: "1px solid var(--border)", display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
+          <input
+            type="text"
+            placeholder="Rechercher..."
+            value={recherche}
+            onChange={(e) => setRecherche(e.target.value)}
+            style={{ flex: "1", minWidth: "160px", fontSize: "13px", marginBottom: 0 }}
+          />
+          <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+            {["tous", "CDI", "CDD"].map((k) => (
+              <button key={k} onClick={() => setContratFiltre(k)} style={btnFilter(contratFiltre === k)}>
+                {k === "tous" ? "Tous contrats" : k}
+              </button>
+            ))}
+          </div>
+          <select
+            value={tri}
+            onChange={(e) => setTri(e.target.value)}
+            style={{ fontSize: "12px", padding: "4px 10px" }}
+          >
+            <option value="date_desc">Date ↓</option>
+            <option value="date_asc">Date ↑</option>
+            <option value="match_desc">Match ↓</option>
+            <option value="match_asc">Match ↑</option>
+          </select>
+        </div>
+
+        {candidaturesFiltrees.length === 0 ? (
           <div style={{ padding: "48px 20px", textAlign: "center" }}>
             <p style={{ fontSize: "13px", color: "var(--text-muted)" }}>
-              Aucune candidature pour l'instant.<br />
-              Postule depuis la page Offres ou ajoute manuellement !
+              {candidatures.length === 0
+                ? "Aucune candidature pour l'instant.\nPostule depuis la page Offres ou ajoute manuellement !"
+                : "Aucune candidature ne correspond à cette recherche."}
             </p>
           </div>
         ) : (
           <div>
-            {candidatures.map((c, i) => {
+            {candidaturesFiltrees.map((c, i) => {
               const analyse = analyses[c.id];
               const scoreColor = analyse ? (analyse.score >= 75 ? "#3fb950" : analyse.score >= 50 ? "#d29922" : "#f85149") : null;
               const scoreBg = analyse ? (analyse.score >= 75 ? "rgba(63,185,80,0.1)" : analyse.score >= 50 ? "rgba(210,153,34,0.1)" : "rgba(248,81,73,0.1)") : null;
               return (
-              <div key={c.id} className="animate-in mobile-stack" style={{
-                animationDelay: `${i * 40}ms`,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: "12px 20px",
-                borderBottom: i < candidatures.length - 1 ? "1px solid var(--border-light)" : "none",
-                transition: "background 0.15s",
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.background = "rgba(88,166,255,0.03)"}
-              onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
-              >
-                <div>
-                  <p style={{ fontSize: "14px", fontWeight: 500, color: "var(--text-primary)", marginBottom: "2px" }}>
-                    {c.titre}
-                  </p>
-                  <p style={{ fontSize: "12px", color: "var(--text-muted)" }}>
-                    {c.entreprise} · {c.source} · {c.datePostulation}
-                  </p>
-                </div>
-                <div className="mobile-wrap" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  {analyse && (
+                <div key={c.id} className="animate-in mobile-stack" style={{
+                  animationDelay: `${i * 40}ms`,
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  padding: "12px 20px",
+                  borderBottom: i < candidaturesFiltrees.length - 1 ? "1px solid var(--border-light)" : "none",
+                  transition: "background 0.15s",
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = "rgba(88,166,255,0.03)"}
+                onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                >
+                  <div>
+                    <p style={{ fontSize: "14px", fontWeight: 500, color: "var(--text-primary)", marginBottom: "2px" }}>
+                      {c.titre}
+                    </p>
+                    <p style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+                      {c.entreprise} · {c.source} · {c.datePostulation}
+                      {c.contrat && c.contrat !== "N/A" && ` · ${c.contrat}`}
+                    </p>
+                  </div>
+                  <div className="mobile-wrap" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    {analyse && (
+                      <span style={{
+                        fontSize: "11px", padding: "3px 8px", borderRadius: "20px",
+                        color: scoreColor, background: scoreBg,
+                        border: `1px solid ${scoreColor}33`, fontWeight: 500,
+                      }}>
+                        {analyse.score}% match
+                      </span>
+                    )}
                     <span style={{
                       fontSize: "11px", padding: "3px 8px", borderRadius: "20px",
-                      color: scoreColor, background: scoreBg,
-                      border: `1px solid ${scoreColor}33`, fontWeight: 500,
+                      color: STATUTS[c.statut]?.color, background: STATUTS[c.statut]?.bg, fontWeight: 500,
                     }}>
-                      {analyse.score}% match
+                      {STATUTS[c.statut]?.label}
                     </span>
-                  )}
-                  <span style={{
-                    fontSize: "11px", padding: "3px 8px", borderRadius: "20px",
-                    color: STATUTS[c.statut]?.color,
-                    background: STATUTS[c.statut]?.bg,
-                    fontWeight: 500,
-                  }}>
-                    {STATUTS[c.statut]?.label}
-                  </span>
-                  <select
-                    value={c.statut}
-                    onChange={(e) => changerStatut(c.id, e.target.value)}
-                    style={{ fontSize: "12px", padding: "3px 8px !important" }}
-                  >
-                    {Object.entries(STATUTS).map(([val, { label }]) => <option key={val} value={val}>{label}</option>)}
-                  </select>
-                  <button
-                    onClick={() => mettreEnCorbeille(c)}
-                    style={{
-                      background: "none", border: "none",
-                      color: "var(--text-muted)", cursor: "pointer",
-                      fontSize: "16px", padding: "2px 4px",
-                      borderRadius: "4px", transition: "color 0.15s",
-                    }}
-                    onMouseEnter={(e) => e.currentTarget.style.color = "var(--danger)"}
-                    onMouseLeave={(e) => e.currentTarget.style.color = "var(--text-muted)"}
-                  >
-                    ×
-                  </button>
+                    <select
+                      value={c.statut}
+                      onChange={(e) => changerStatut(c.id, e.target.value)}
+                      style={{ fontSize: "12px", padding: "3px 8px !important" }}
+                    >
+                      {Object.entries(STATUTS).map(([val, { label }]) => <option key={val} value={val}>{label}</option>)}
+                    </select>
+                    <button
+                      onClick={() => mettreEnCorbeille(c)}
+                      style={{
+                        background: "none", border: "none", color: "var(--text-muted)",
+                        cursor: "pointer", fontSize: "16px", padding: "2px 4px",
+                        borderRadius: "4px", transition: "color 0.15s",
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.color = "var(--danger)"}
+                      onMouseLeave={(e) => e.currentTarget.style.color = "var(--text-muted)"}
+                    >
+                      ×
+                    </button>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
           </div>
         )}
       </div>
