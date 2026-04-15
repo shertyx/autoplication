@@ -10,7 +10,6 @@ import {
   saveJsearchQuota,
 } from "@/services/quota";
 
-const DEFAULT_KEYWORDS = ["data analyst", "data engineer", "machine learning engineer", "AI engineer"];
 const DEFAULT_LOCATION = "Paris, France";
 
 function simpleKeywordFallback(poste) {
@@ -98,7 +97,7 @@ function fallbackKeywords(poste) {
 }
 
 async function generateKeywords(profil, userEmail) {
-  if (!profil?.poste) return DEFAULT_KEYWORDS;
+  if (!profil?.poste) return null;
 
   // Cache Redis basé sur le poste — évite de rappeler Gemini à chaque scraping
   const cacheKey = `keywords:${userEmail}:${Buffer.from(profil.poste).toString("base64").slice(0, 20)}`;
@@ -166,72 +165,66 @@ async function scrapeFranceTravail(token, keywords, location) {
     console.error("[FT] Token manquant, skip.");
     return [];
   }
-  // Extraire la ville pour l'inclure dans les mots-clés si possible
   const ville = location.includes(",") ? location.split(",")[0].trim() : location;
-  const offres = [];
-  for (const keyword of keywords) {
+  const results = await Promise.all(keywords.map(async (keyword) => {
     try {
       const res = await fetch(
         `https://api.francetravail.io/partenaire/offresdemploi/v2/offres/search?motsCles=${encodeURIComponent(keyword + " " + ville)}&nbResultats=20`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      // Compteur journalier FT (TTL 24h pour reset automatique)
       await incrementFranceTravailQuota();
       const text = await res.text();
-      if (!text) { console.log(`[FT] "${keyword}": réponse vide (status ${res.status})`); continue; }
+      if (!text) { console.log(`[FT] "${keyword}": réponse vide (status ${res.status})`); return []; }
       const data = JSON.parse(text);
       console.log(`[FT] "${keyword}": status=${res.status}, resultats=${data.resultats?.length ?? 0}`, data.message ?? "");
-      for (const o of data.resultats || []) {
-        offres.push({
-          id: `ft-${o.id}`,
-          titre: o.intitule ?? "N/A",
-          entreprise: o.entreprise?.nom ?? "Non précisé",
-          lieu: o.lieuTravail?.libelle ?? "N/A",
-          contrat: o.typeContratLibelle ?? "N/A",
-          source: "France Travail",
-          keyword,
-          lien: o.origineOffre?.urlOrigine ?? `https://www.google.com/search?q=${encodeURIComponent((o.intitule ?? keyword) + " " + (o.entreprise?.nom ?? "") + " emploi")}`,
-          date: new Date().toLocaleDateString("fr-FR"),
-        });
-      }
+      return (data.resultats || []).map((o) => ({
+        id: `ft-${o.id}`,
+        titre: o.intitule ?? "N/A",
+        entreprise: o.entreprise?.nom ?? "Non précisé",
+        lieu: o.lieuTravail?.libelle ?? "N/A",
+        contrat: o.typeContratLibelle ?? "N/A",
+        source: "France Travail",
+        keyword,
+        lien: o.origineOffre?.urlOrigine ?? `https://www.google.com/search?q=${encodeURIComponent((o.intitule ?? keyword) + " " + (o.entreprise?.nom ?? "") + " emploi")}`,
+        date: new Date().toLocaleDateString("fr-FR"),
+      }));
     } catch (e) {
       console.error(`[FT] Erreur "${keyword}":`, e.message);
+      return [];
     }
-  }
-  return offres;
+  }));
+  return results.flat();
 }
 
 async function scrapeGoogleJobs(keywords, location) {
   if (!process.env.SERP_API_KEY) { console.log("[GJ] Clé SERP_API_KEY manquante, skip."); return []; }
-  const offres = [];
-  for (const keyword of keywords.slice(0, 3)) {
+  const results = await Promise.all(keywords.slice(0, 3).map(async (keyword) => {
     try {
       const res = await fetch(
         `https://serpapi.com/search.json?engine=google_jobs&q=${encodeURIComponent(keyword + " " + location)}&hl=fr&gl=fr&api_key=${process.env.SERP_API_KEY}`
       );
       const text = await res.text();
       console.log(`[GJ] "${keyword}": http=${res.status} body=${text.slice(0, 120)}`);
-      if (!text) continue;
+      if (!text) return [];
       let data;
-      try { data = JSON.parse(text); } catch { console.error(`[GJ] JSON invalide pour "${keyword}"`); continue; }
-      for (const o of data.jobs_results || []) {
-        offres.push({
-          id: `gj-${o.job_id ?? Math.random()}`,
-          titre: o.title ?? "N/A",
-          entreprise: o.company_name ?? "N/A",
-          lieu: o.location ?? location,
-          contrat: o.detected_extensions?.schedule_type ?? "N/A",
-          source: "Google Jobs",
-          keyword,
-          lien: o.apply_options?.[0]?.link ?? o.related_links?.[0]?.link ?? `https://www.google.com/search?q=${encodeURIComponent((o.title ?? keyword) + " " + (o.company_name ?? "") + " emploi")}`,
-          date: new Date().toLocaleDateString("fr-FR"),
-        });
-      }
+      try { data = JSON.parse(text); } catch { console.error(`[GJ] JSON invalide pour "${keyword}"`); return []; }
+      return (data.jobs_results || []).map((o) => ({
+        id: `gj-${o.job_id ?? Math.random()}`,
+        titre: o.title ?? "N/A",
+        entreprise: o.company_name ?? "N/A",
+        lieu: o.location ?? location,
+        contrat: o.detected_extensions?.schedule_type ?? "N/A",
+        source: "Google Jobs",
+        keyword,
+        lien: o.apply_options?.[0]?.link ?? o.related_links?.[0]?.link ?? `https://www.google.com/search?q=${encodeURIComponent((o.title ?? keyword) + " " + (o.company_name ?? "") + " emploi")}`,
+        date: new Date().toLocaleDateString("fr-FR"),
+      }));
     } catch (e) {
       console.error(`[GJ] Erreur "${keyword}":`, e.message);
+      return [];
     }
-  }
-  return offres;
+  }));
+  return results.flat();
 }
 
 async function scrapeJSearch(keywords, location) {
@@ -239,57 +232,49 @@ async function scrapeJSearch(keywords, location) {
     console.log("[JS] Clé JSEARCH_API_KEY manquante, skip.");
     return [];
   }
-  // Extraire juste le pays (ex: "Lille, France" → "France")
-  const country = location.includes(",") ? location.split(",").pop().trim() : location;
-  const offres = [];
-  for (const keyword of keywords) {
+  const results = await Promise.all(keywords.map(async (keyword) => {
     try {
-      const query = encodeURIComponent(keyword);
-      const url = `https://jsearch.p.rapidapi.com/search?query=${query}&page=1&num_pages=2`;
+      const url = `https://jsearch.p.rapidapi.com/search?query=${encodeURIComponent(keyword)}&page=1&num_pages=2`;
       const res = await fetch(url, {
         headers: {
           "X-RapidAPI-Key": process.env.JSEARCH_API_KEY,
           "X-RapidAPI-Host": "jsearch.p.rapidapi.com",
         },
       });
-      // Capturer le quota RapidAPI depuis les headers
       const remaining = res.headers.get("x-ratelimit-requests-remaining");
       const limit = res.headers.get("x-ratelimit-requests-limit");
-      if (remaining !== null) {
-        await saveJsearchQuota(parseInt(remaining), parseInt(limit ?? 0));
-      }
+      if (remaining !== null) await saveJsearchQuota(parseInt(remaining), parseInt(limit ?? 0));
 
       const rawText = await res.text();
       let data;
       try { data = JSON.parse(rawText); } catch {
         console.error(`[JS] "${keyword}": réponse non-JSON:`, rawText.slice(0, 200));
-        continue;
+        return [];
       }
       if (data.status !== "OK") {
         console.error(`[JS] "${keyword}": status=${data.status} message=${data.message ?? JSON.stringify(data).slice(0, 150)}`);
-        continue;
+        return [];
       }
       console.log(`[JS] "${keyword}": ${data.data?.length ?? 0} résultats (http ${res.status})`);
-      for (const o of data.data || []) {
-        offres.push({
-          id: `js-${o.job_id ?? Math.random()}`,
-          titre: o.job_title ?? "N/A",
-          entreprise: o.employer_name ?? "N/A",
-          lieu: [o.job_city, o.job_country].filter(Boolean).join(", ") || location,
-          contrat: o.job_employment_type ?? "N/A",
-          source: "JSearch",
-          keyword,
-          lien: o.job_apply_link ?? o.job_google_link ?? `https://www.google.com/search?q=${encodeURIComponent((o.job_title ?? keyword) + " " + (o.employer_name ?? "") + " emploi")}`,
-          date: o.job_posted_at_datetime_utc
-            ? new Date(o.job_posted_at_datetime_utc).toLocaleDateString("fr-FR")
-            : new Date().toLocaleDateString("fr-FR"),
-        });
-      }
+      return (data.data || []).map((o) => ({
+        id: `js-${o.job_id ?? Math.random()}`,
+        titre: o.job_title ?? "N/A",
+        entreprise: o.employer_name ?? "N/A",
+        lieu: [o.job_city, o.job_country].filter(Boolean).join(", ") || location,
+        contrat: o.job_employment_type ?? "N/A",
+        source: "JSearch",
+        keyword,
+        lien: o.job_apply_link ?? o.job_google_link ?? `https://www.google.com/search?q=${encodeURIComponent((o.job_title ?? keyword) + " " + (o.employer_name ?? "") + " emploi")}`,
+        date: o.job_posted_at_datetime_utc
+          ? new Date(o.job_posted_at_datetime_utc).toLocaleDateString("fr-FR")
+          : new Date().toLocaleDateString("fr-FR"),
+      }));
     } catch (e) {
       console.error(`[JS] Erreur "${keyword}":`, e.message);
+      return [];
     }
-  }
-  return offres;
+  }));
+  return results.flat();
 }
 
 export async function POST(request) {
@@ -318,6 +303,9 @@ export async function POST(request) {
 
     const userKey = session?.user?.email ?? `ip:${getClientIp(request)}`;
     const keywords = await generateKeywords(profil, userKey);
+    if (!keywords) {
+      return Response.json({ success: false, error: "Renseigne ton poste recherché dans ton profil pour que l'on trouve les bonnes offres." }, { status: 400 });
+    }
     const location = getLocationFromProfile(profil);
 
     console.log(`[SCRAPER] User: ${userKey} | Keywords: ${keywords.join(", ")} | Location: ${location}`);
