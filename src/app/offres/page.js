@@ -1,8 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { useApp } from "@/context/AppContext";
 import { useRouter } from "next/navigation";
+
+const ADMIN_EMAIL = "fcaron59126@gmail.com";
 
 const SOURCE_COLORS = {
   "France Travail": { color: "#58a6ff", bg: "rgba(88, 166, 255, 0.1)" },
@@ -13,6 +16,8 @@ const SOURCE_COLORS = {
 
 export default function Offres() {
   const router = useRouter();
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.email === ADMIN_EMAIL;
   const { candidatures, corbeille, postuler, mettreEnAttente, restaurerDansOffres, viderCorbeille, mettreEnCorbeille } = useApp();
   const [offres, setOffres] = useState([]);
   const [lastUpdate, setLastUpdate] = useState(null);
@@ -138,6 +143,22 @@ export default function Offres() {
                 <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: displayColor, display: "inline-block" }} />
                 <span style={{ color: "var(--text-secondary)", fontWeight: 500 }}>{label}</span>
                 <span style={{ color: displayColor }}>{valueText}</span>
+                {isAdmin && label === "Gemini" && (
+                  <button
+                    onClick={async () => {
+                      await fetch("/api/admin/reset-quota", { method: "POST" });
+                      fetchQuota();
+                    }}
+                    style={{
+                      fontSize: "10px", padding: "1px 6px", marginLeft: "2px",
+                      background: "transparent", border: "1px solid var(--border)",
+                      borderRadius: "10px", color: "var(--text-muted)", cursor: "pointer",
+                    }}
+                    title="Réinitialiser le compteur Gemini"
+                  >
+                    reset
+                  </button>
+                )}
               </div>
             );
           })}
