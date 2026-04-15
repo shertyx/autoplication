@@ -11,7 +11,7 @@ const STATUTS = {
 };
 
 export default function Dashboard() {
-  const { candidatures, postuler, changerStatut, mettreEnCorbeille } = useApp();
+  const { candidatures, postuler, changerStatut, mettreEnCorbeille, analyses } = useApp();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ titre: "", entreprise: "", source: "LinkedIn", statut: "sent" });
 
@@ -156,7 +156,11 @@ export default function Dashboard() {
           </div>
         ) : (
           <div>
-            {candidatures.map((c, i) => (
+            {candidatures.map((c, i) => {
+              const analyse = analyses[c.id];
+              const scoreColor = analyse ? (analyse.score >= 75 ? "#3fb950" : analyse.score >= 50 ? "#d29922" : "#f85149") : null;
+              const scoreBg = analyse ? (analyse.score >= 75 ? "rgba(63,185,80,0.1)" : analyse.score >= 50 ? "rgba(210,153,34,0.1)" : "rgba(248,81,73,0.1)") : null;
+              return (
               <div key={c.id} className="animate-in mobile-stack" style={{
                 animationDelay: `${i * 40}ms`,
                 display: "flex",
@@ -178,6 +182,15 @@ export default function Dashboard() {
                   </p>
                 </div>
                 <div className="mobile-wrap" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  {analyse && (
+                    <span style={{
+                      fontSize: "11px", padding: "3px 8px", borderRadius: "20px",
+                      color: scoreColor, background: scoreBg,
+                      border: `1px solid ${scoreColor}33`, fontWeight: 500,
+                    }}>
+                      {analyse.score}% match
+                    </span>
+                  )}
                   <span style={{
                     fontSize: "11px", padding: "3px 8px", borderRadius: "20px",
                     color: STATUTS[c.statut]?.color,
@@ -208,7 +221,8 @@ export default function Dashboard() {
                   </button>
                 </div>
               </div>
-            ))}
+            );
+          })}
           </div>
         )}
       </div>
