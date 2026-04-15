@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { Redis } from "@upstash/redis";
 import { auth } from "@/auth";
-import { limiters, checkRateLimit } from "@/lib/ratelimit";
+import { limiters, guestLimiters, checkRateLimit, getClientIp } from "@/lib/ratelimit";
 import { sanitize, badRequest } from "@/lib/validate";
 
 const redis = new Redis({
@@ -14,10 +14,14 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 export async function POST(request) {
   try {
     const session = await auth();
-    if (!session?.user?.email) return Response.json({ error: "Non autorisé" }, { status: 401 });
 
-    const blocked = await checkRateLimit(limiters.ai, session.user.email);
-    if (blocked) return blocked;
+    if (session?.user?.email) {
+      const blocked = await checkRateLimit(limiters.ai, session.user.email);
+      if (blocked) return blocked;
+    } else {
+      const blocked = await checkRateLimit(guestLimiters.ai, `ip:${getClientIp(request)}`);
+      if (blocked) return blocked;
+    }
 
     const body = await request.json();
     const offre = sanitize(body.offre, 8000);

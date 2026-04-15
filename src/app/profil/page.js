@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { useSession, signOut } from "next-auth/react";
+import Link from "next/link";
 
 export default function Profil() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
+  const isGuest = status !== "loading" && !session?.user?.email;
   const [cv, setCv] = useState("");
   const [nom, setNom] = useState("");
   const [poste, setPoste] = useState("");
@@ -16,6 +18,17 @@ export default function Profil() {
   const [parseError, setParseError] = useState(null);
 
   useEffect(() => {
+    if (status === "loading") return;
+    if (isGuest) {
+      try {
+        const stored = JSON.parse(localStorage.getItem("applify_profil") || "{}");
+        if (stored.cv) setCv(stored.cv);
+        if (stored.nom) setNom(stored.nom);
+        if (stored.poste) setPoste(stored.poste);
+        if (stored.ville) setVille(stored.ville);
+      } catch {}
+      return;
+    }
     fetch("/api/profil")
       .then((r) => r.json())
       .then((data) => {
@@ -24,7 +37,7 @@ export default function Profil() {
         if (data.poste) setPoste(data.poste);
         if (data.ville) setVille(data.ville);
       });
-  }, []);
+  }, [status, isGuest]);
 
   async function handlePdf(e) {
     const file = e.target.files?.[0];
@@ -54,6 +67,15 @@ export default function Profil() {
 
   async function sauvegarder() {
     setSaving(true);
+    if (isGuest) {
+      try {
+        localStorage.setItem("applify_profil", JSON.stringify({ cv, nom, poste, ville }));
+      } catch {}
+      setSaving(false);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+      return;
+    }
     await fetch("/api/profil", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -77,6 +99,30 @@ export default function Profil() {
           Ton CV est utilisé pour personnaliser le scoring et les lettres de motivation
         </p>
       </div>
+
+      {isGuest && (
+        <div className="animate-in" style={{
+          background: "rgba(88, 166, 255, 0.06)", border: "1px solid rgba(88, 166, 255, 0.2)",
+          borderRadius: "8px", padding: "14px 16px", marginBottom: "20px",
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          flexWrap: "wrap", gap: "12px",
+        }}>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#58a6ff" strokeWidth="2" style={{ flexShrink: 0, marginTop: "1px" }}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <p style={{ fontSize: "13px", color: "var(--text-secondary)", margin: 0, lineHeight: "1.5" }}>
+              Sans compte, ton profil et tes candidatures sont enregistrés uniquement dans ce navigateur — ils seront perdus si tu vides ton cache ou changes d'appareil.
+            </p>
+          </div>
+          <Link href="/login" style={{
+            fontSize: "12px", padding: "6px 14px",
+            background: "#238636", border: "1px solid #2ea043",
+            borderRadius: "6px", color: "#fff", textDecoration: "none",
+            whiteSpace: "nowrap", fontWeight: 500, flexShrink: 0,
+          }}>
+            Alors on s'inscrit ?
+          </Link>
+        </div>
+      )}
 
       {/* Infos */}
       <div className="animate-in" style={card}>
@@ -178,20 +224,22 @@ export default function Profil() {
           {saved ? "Sauvegardé !" : saving ? "Sauvegarde..." : "Sauvegarder"}
         </button>
 
-        <button
-          onClick={supprimerCompte}
-          disabled={deleting}
-          style={{
-            fontSize: "12px", padding: "8px 16px",
-            background: "transparent",
-            border: "1px solid rgba(248,81,73,0.3)",
-            borderRadius: "6px", color: "var(--danger)",
-            cursor: deleting ? "not-allowed" : "pointer",
-            transition: "all 0.2s",
-          }}
-        >
-          {deleting ? "Suppression..." : "Supprimer mon compte"}
-        </button>
+        {!isGuest && (
+          <button
+            onClick={supprimerCompte}
+            disabled={deleting}
+            style={{
+              fontSize: "12px", padding: "8px 16px",
+              background: "transparent",
+              border: "1px solid rgba(248,81,73,0.3)",
+              borderRadius: "6px", color: "var(--danger)",
+              cursor: deleting ? "not-allowed" : "pointer",
+              transition: "all 0.2s",
+            }}
+          >
+            {deleting ? "Suppression..." : "Supprimer mon compte"}
+          </button>
+        )}
       </div>
     </main>
   );

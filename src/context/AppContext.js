@@ -1,31 +1,54 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { useSession } from "next-auth/react";
 
 const AppContext = createContext();
 
 export function AppProvider({ children }) {
+  const { data: session, status } = useSession();
   const [candidatures, setCandidatures] = useState([]);
   const [corbeille, setCorbeille] = useState([]);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
+    if (status === "loading") return;
+
+    if (!session?.user?.email) {
+      // Guest — use localStorage
+      try {
+        const stored = JSON.parse(localStorage.getItem("applify_candidatures") || "{}");
+        setCandidatures(Array.isArray(stored.candidatures) ? stored.candidatures : []);
+        setCorbeille(Array.isArray(stored.corbeille) ? stored.corbeille : []);
+      } catch {}
+      setHydrated(true);
+      return;
+    }
+
+    // Authenticated — use Redis via API
     fetch("/api/candidatures")
       .then((r) => r.json())
       .then((data) => {
         setCandidatures(data.candidatures || []);
         setCorbeille(data.corbeille || []);
         setHydrated(true);
-      });
-  }, []);
+      })
+      .catch(() => setHydrated(true));
+  }, [status, session?.user?.email]);
 
   const save = useCallback((newCandidatures, newCorbeille) => {
+    if (!session?.user?.email) {
+      try {
+        localStorage.setItem("applify_candidatures", JSON.stringify({ candidatures: newCandidatures, corbeille: newCorbeille }));
+      } catch {}
+      return;
+    }
     fetch("/api/candidatures", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ candidatures: newCandidatures, corbeille: newCorbeille }),
     });
-  }, []);
+  }, [session?.user?.email]);
 
   function postuler(offre) {
     setCandidatures((prev) => {

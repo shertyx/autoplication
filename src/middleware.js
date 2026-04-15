@@ -1,14 +1,3 @@
-import { auth } from "@/auth";
-
-export default auth((req) => {
-  const isLoggedIn = !!req.auth;
-  const isLoginPage = req.nextUrl.pathname === "/login";
-
-  if (!isLoggedIn && !isLoginPage) {
-    return Response.redirect(new URL("/login", req.url));
-  }
-});
-
 export const config = {
-  matcher: ["/dashboard", "/offres", "/analyse", "/lettre", "/profil", "/amis", "/chat/:path*"],
+  matcher: [], // All routes accessible — auth handled per-page and per-route
 };

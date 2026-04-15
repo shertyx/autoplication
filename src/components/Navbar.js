@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useApp } from "@/context/AppContext";
 import { useSession, signOut } from "next-auth/react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Image from "next/image";
 
 const links = [
@@ -31,6 +31,7 @@ const links = [
   {
     href: "/amis",
     label: "Amis",
+    auth: true,
     icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
   },
   {
@@ -46,17 +47,27 @@ export default function Navbar() {
   const { data: session } = useSession();
   const entretiens = candidatures.filter((c) => c.statut === "interview").length;
   const [unread, setUnread] = useState(0);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   useEffect(() => {
     if (!session?.user) return;
-    // Enregistrer l'utilisateur au registre une seule fois par session navigateur
     const key = `registered_${session.user.email}`;
     if (!sessionStorage.getItem(key)) {
       fetch("/api/social/register", { method: "POST" }).then(() => {
         sessionStorage.setItem(key, "1");
       });
     }
-    // Charger les notifications
     loadNotifs();
     const interval = setInterval(loadNotifs, 30000);
     return () => clearInterval(interval);
@@ -69,8 +80,6 @@ export default function Navbar() {
       setUnread((Array.isArray(data) ? data : []).filter((n) => !n.read).length);
     } catch {}
   }
-
-  if (!session) return null;
 
   return (
     <nav style={{
@@ -88,8 +97,7 @@ export default function Navbar() {
       </div>
 
       <div style={{ display: "flex", gap: "2px" }}>
-        {links.map((link) => {
-          const active = pathname === link.href || pathname?.startsWith("/chat");
+        {links.filter((l) => !l.auth || session?.user).map((link) => {
           const isActive = pathname === link.href;
           return (
             <Link key={link.href} href={link.href} style={{
@@ -117,20 +125,64 @@ export default function Navbar() {
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-        <div className="mobile-hide" style={{ fontSize: "11px", color: "var(--text-muted)", background: "var(--bg-tertiary)", border: "1px solid var(--border)", borderRadius: "20px", padding: "3px 10px" }}>
-          {candidatures.length} candidature{candidatures.length !== 1 ? "s" : ""}
-        </div>
         {session?.user && (
-          <button onClick={() => signOut({ callbackUrl: "/login" })} title={`Déconnexion (${session.user.name})`}
-            style={{ background: "none", border: "none", cursor: "pointer", padding: 0, flexShrink: 0, borderRadius: "50%" }}>
-            {session.user.image ? (
-              <Image src={session.user.image} alt={session.user.name ?? "Avatar"} width={30} height={30} style={{ borderRadius: "50%", display: "block" }} />
-            ) : (
-              <div style={{ width: "30px", height: "30px", borderRadius: "50%", background: "linear-gradient(135deg, #58a6ff, #bc8cff)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontWeight: 600, color: "#fff" }}>
-                {session.user.name?.[0]?.toUpperCase() ?? "U"}
+          <div className="mobile-hide" style={{ fontSize: "11px", color: "var(--text-muted)", background: "var(--bg-tertiary)", border: "1px solid var(--border)", borderRadius: "20px", padding: "3px 10px" }}>
+            {candidatures.length} candidature{candidatures.length !== 1 ? "s" : ""}
+          </div>
+        )}
+
+        {session?.user ? (
+          <div ref={dropdownRef} style={{ position: "relative" }}>
+            <button
+              onClick={() => setDropdownOpen((o) => !o)}
+              title={session.user.name ?? "Mon compte"}
+              style={{ background: "none", border: "none", cursor: "pointer", padding: 0, flexShrink: 0, borderRadius: "50%" }}
+            >
+              {session.user.image ? (
+                <Image src={session.user.image} alt={session.user.name ?? "Avatar"} width={30} height={30} style={{ borderRadius: "50%", display: "block" }} />
+              ) : (
+                <div style={{ width: "30px", height: "30px", borderRadius: "50%", background: "linear-gradient(135deg, #58a6ff, #bc8cff)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontWeight: 600, color: "#fff" }}>
+                  {session.user.name?.[0]?.toUpperCase() ?? "U"}
+                </div>
+              )}
+            </button>
+
+            {dropdownOpen && (
+              <div style={{
+                position: "absolute", right: 0, top: "38px",
+                background: "var(--bg-secondary)", border: "1px solid var(--border)",
+                borderRadius: "8px", padding: "4px", minWidth: "180px", zIndex: 200,
+                boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
+              }}>
+                <div style={{ padding: "8px 12px", marginBottom: "4px", borderBottom: "1px solid var(--border)" }}>
+                  <p style={{ fontSize: "12px", fontWeight: 500, color: "var(--text-primary)", margin: 0 }}>{session.user.name}</p>
+                  <p style={{ fontSize: "11px", color: "var(--text-muted)", margin: 0, marginTop: "2px" }}>{session.user.email}</p>
+                </div>
+                <button
+                  onClick={() => { signOut({ callbackUrl: "/login" }); setDropdownOpen(false); }}
+                  style={{
+                    width: "100%", textAlign: "left", padding: "8px 12px",
+                    background: "none", border: "none", cursor: "pointer",
+                    fontSize: "13px", color: "var(--danger)", borderRadius: "4px",
+                    transition: "background 0.1s",
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = "rgba(248,81,73,0.08)"}
+                  onMouseLeave={(e) => e.currentTarget.style.background = "none"}
+                >
+                  Se déconnecter
+                </button>
               </div>
             )}
-          </button>
+          </div>
+        ) : (
+          <Link href="/login" style={{
+            fontSize: "13px", padding: "6px 14px",
+            background: "#238636", border: "1px solid #2ea043",
+            borderRadius: "6px", color: "#fff", textDecoration: "none",
+            whiteSpace: "nowrap", fontWeight: 500,
+          }}>
+            Se connecter
+          </Link>
         )}
       </div>
     </nav>

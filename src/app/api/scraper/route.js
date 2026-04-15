@@ -1,6 +1,6 @@
 import { Redis } from "@upstash/redis";
 import { auth } from "@/auth";
-import { limiters, checkRateLimit } from "@/lib/ratelimit";
+import { limiters, guestLimiters, checkRateLimit, getClientIp } from "@/lib/ratelimit";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const redis = new Redis({
@@ -293,19 +293,24 @@ async function scrapeJSearch(keywords, location) {
   return offres;
 }
 
-export async function POST() {
+export async function POST(request) {
   const session = await auth();
-  if (!session?.user?.email) return Response.json({ success: false, error: "Non autorisé" }, { status: 401 });
 
-  const blocked = await checkRateLimit(limiters.scraper, session.user.email);
-  if (blocked) return blocked;
+  if (session?.user?.email) {
+    const blocked = await checkRateLimit(limiters.scraper, session.user.email);
+    if (blocked) return blocked;
+  } else {
+    const blocked = await checkRateLimit(guestLimiters.scraper, `ip:${getClientIp(request)}`);
+    if (blocked) return blocked;
+  }
 
   try {
-    const profil = await redis.get(`profil:${session.user.email}`);
-    const keywords = await generateKeywords(profil, session.user.email);
+    const profil = session?.user?.email ? await redis.get(`profil:${session.user.email}`) : null;
+    const userKey = session?.user?.email ?? `ip:${getClientIp(request)}`;
+    const keywords = await generateKeywords(profil, userKey);
     const location = getLocationFromProfile(profil);
 
-    console.log(`[SCRAPER] User: ${session.user.email} | Keywords: ${keywords.join(", ")} | Location: ${location}`);
+    console.log(`[SCRAPER] User: ${userKey} | Keywords: ${keywords.join(", ")} | Location: ${location}`);
 
     const token = await getTokenFT();
     const [ftOffres, gjOffres, jsOffres] = await Promise.all([
@@ -330,7 +335,7 @@ export async function POST() {
       offres: unique,
     };
 
-    await redis.set(`offres:${session.user.email}`, JSON.stringify(payload));
+    await redis.set(`offres:${userKey}`, JSON.stringify(payload));
 
     return Response.json({ success: true, total: unique.length });
   } catch (error) {

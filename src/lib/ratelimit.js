@@ -28,6 +28,19 @@ export const limiters = {
   register: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(20, "1 h"), prefix: "rl:register" }),
 };
 
+// Guest limiters — ~1/3 of authenticated limits, keyed by IP
+export const guestLimiters = {
+  ai:      new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(3,  "1 h"), prefix: "rl:guest:ai" }),
+  scraper: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5,  "1 h"), prefix: "rl:guest:scraper" }),
+  parse:   new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(3,  "1 h"), prefix: "rl:guest:parse" }),
+};
+
+export function getClientIp(request) {
+  const forwarded = request.headers.get("x-forwarded-for");
+  if (forwarded) return forwarded.split(",")[0].trim();
+  return request.headers.get("x-real-ip") || "unknown";
+}
+
 export async function checkRateLimit(limiter, identifier) {
   const { success, remaining } = await limiter.limit(identifier);
   if (!success) {
