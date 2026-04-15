@@ -8,10 +8,33 @@ function LettreForm() {
   const [entreprise, setEntreprise] = useState(searchParams.get("entreprise") || "");
   const [poste, setPoste] = useState(searchParams.get("titre") || "");
   const [offre, setOffre] = useState("");
+  const [fetchStatus, setFetchStatus] = useState(null); // null | "loading" | "ok" | "manual"
+  const [editMode, setEditMode] = useState(false);
   const [ton, setTon] = useState("professionnel");
   const [loading, setLoading] = useState(false);
   const [lettre, setLettre] = useState("");
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    const id = searchParams.get("id");
+    const source = searchParams.get("source");
+    if (id && source === "France Travail") {
+      setFetchStatus("loading");
+      fetch(`/api/offres/description?id=${encodeURIComponent(id)}`)
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.description) {
+            setOffre(data.description);
+            setFetchStatus("ok");
+          } else {
+            setFetchStatus("manual");
+          }
+        })
+        .catch(() => setFetchStatus("manual"));
+    } else if (source) {
+      setFetchStatus("manual");
+    }
+  }, []);
 
   async function genererLettre() {
     if (!entreprise || !poste) return;
@@ -79,15 +102,58 @@ function LettreForm() {
         </div>
 
         <div style={{ marginBottom: "12px" }}>
-          <label style={{ fontSize: "11px", color: "var(--text-muted)", display: "block", marginBottom: "6px", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-            Description de l'offre (optionnel)
-          </label>
-          <textarea
-            placeholder="Colle la fiche de poste ici pour une lettre plus personnalisée..."
-            value={offre}
-            onChange={(e) => setOffre(e.target.value)}
-            style={{ width: "100%", minHeight: "90px", resize: "vertical" }}
-          />
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
+            <label style={{ fontSize: "11px", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+              Description de l'offre (optionnel)
+            </label>
+            {fetchStatus === "loading" && (
+              <span className="animate-pulse" style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+                Récupération depuis France Travail...
+              </span>
+            )}
+            {fetchStatus === "ok" && (
+              <span style={{ fontSize: "11px", color: "#3fb950", display: "flex", alignItems: "center", gap: "4px" }}>
+                <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#3fb950", display: "inline-block" }} />
+                Description récupérée automatiquement
+              </span>
+            )}
+            {fetchStatus === "manual" && (
+              <span style={{ fontSize: "11px", color: "#d29922", display: "flex", alignItems: "center", gap: "4px" }}>
+                <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#d29922", display: "inline-block" }} />
+                Description non disponible — colle-la ci-dessous
+              </span>
+            )}
+          </div>
+          {fetchStatus === "ok" && !editMode ? (
+            <>
+              <div style={{
+                background: "var(--bg-primary)", border: "1px solid var(--border)",
+                borderRadius: "6px", padding: "14px 16px",
+                fontSize: "13px", color: "var(--text-secondary)", lineHeight: "1.7",
+                whiteSpace: "pre-wrap", maxHeight: "200px", overflowY: "auto",
+              }}>
+                {offre}
+              </div>
+              <button
+                onClick={() => setEditMode(true)}
+                style={{
+                  marginTop: "6px", fontSize: "11px", padding: "3px 10px",
+                  background: "transparent", border: "1px solid var(--border)",
+                  borderRadius: "6px", color: "var(--text-muted)", cursor: "pointer",
+                }}
+              >
+                Modifier
+              </button>
+            </>
+          ) : (
+            <textarea
+              placeholder="Colle la fiche de poste ici pour une lettre plus personnalisée..."
+              value={offre}
+              onChange={(e) => setOffre(e.target.value)}
+              disabled={fetchStatus === "loading"}
+              style={{ width: "100%", minHeight: "90px", resize: "vertical", opacity: fetchStatus === "loading" ? 0.5 : 1 }}
+            />
+          )}
         </div>
 
         <div style={{ marginBottom: "16px" }}>

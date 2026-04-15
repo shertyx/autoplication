@@ -363,7 +363,7 @@ export default function Offres() {
                       }}>
                         Suivie ✓
                       </span>
-                      <button onClick={() => router.push(`/lettre?titre=${encodeURIComponent(offre.titre)}&entreprise=${encodeURIComponent(offre.entreprise)}`)} style={btnStyle("transparent", "var(--border)", "var(--text-secondary)")}>
+                      <button onClick={() => router.push(`/lettre?titre=${encodeURIComponent(offre.titre)}&entreprise=${encodeURIComponent(offre.entreprise)}&id=${encodeURIComponent(offre.id)}&source=${encodeURIComponent(offre.source ?? "")}`)} style={btnStyle("transparent", "var(--border)", "var(--text-secondary)")}>
                         Lettre
                       </button>
                       <button onClick={() => ouvrirAnalyse(offre)} style={btnStyle("transparent", "var(--border)", "var(--text-secondary)")}>
@@ -381,7 +381,7 @@ export default function Offres() {
                       <button onClick={() => mettreEnAttente(offre)} style={btnStyle("transparent", "var(--border)", "var(--text-secondary)")}>
                         En attente
                       </button>
-                      <button onClick={() => router.push(`/lettre?titre=${encodeURIComponent(offre.titre)}&entreprise=${encodeURIComponent(offre.entreprise)}`)} style={btnStyle("transparent", "var(--border)", "var(--accent)")}>
+                      <button onClick={() => router.push(`/lettre?titre=${encodeURIComponent(offre.titre)}&entreprise=${encodeURIComponent(offre.entreprise)}&id=${encodeURIComponent(offre.id)}&source=${encodeURIComponent(offre.source ?? "")}`)} style={btnStyle("transparent", "var(--border)", "var(--accent)")}>
                         Lettre
                       </button>
                       <button onClick={() => ouvrirAnalyse(offre)} style={btnStyle("transparent", "var(--border)", "var(--text-secondary)")}>
