@@ -306,8 +306,14 @@ export async function POST(request) {
   try {
     const profil = session?.user?.email ? await redis.get(`profil:${session.user.email}`) : null;
 
-    if (!profil?.poste?.trim() || !profil?.ville?.trim()) {
-      return Response.json({ success: false, error: "Complète ton profil (poste + ville) avant de lancer le scraping." }, { status: 400 });
+    const completion =
+      (profil?.nom?.trim() ? 15 : 0) +
+      (profil?.poste?.trim() ? 30 : 0) +
+      (profil?.ville?.trim() ? 25 : 0) +
+      ((profil?.cv?.trim().length ?? 0) > 100 ? 30 : (profil?.cv?.trim().length ?? 0) > 0 ? 15 : 0);
+
+    if (completion < 60) {
+      return Response.json({ success: false, error: `Profil incomplet (${completion}% / 60% requis) — complète ton poste, ta ville et ton CV.` }, { status: 400 });
     }
 
     const userKey = session?.user?.email ?? `ip:${getClientIp(request)}`;

@@ -134,9 +134,9 @@ export default function Profil() {
           ) : (
             <p style={{ fontSize: "12px", color: "#3fb950", margin: 0 }}>Profil complet — scraping optimisé</p>
           )}
-          {completion < 55 && (
+          {completion < 60 && (
             <p style={{ fontSize: "11px", color: "#d29922", marginTop: "6px", marginBottom: 0 }}>
-              Le scraping nécessite au minimum le poste et la ville (55%)
+              Le scraping est bloqué jusqu'à 60% — remplis poste, ville et CV
             </p>
           )}
         </div>
