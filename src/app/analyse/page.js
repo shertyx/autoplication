@@ -8,6 +8,7 @@ export default function Analyse() {
   const [offre, setOffre] = useState("");
   const [fetchStatus, setFetchStatus] = useState(null); // null | "loading" | "ok" | "manual"
   const [source, setSource] = useState(null);
+  const [lien, setLien] = useState(null);
   const [loading, setLoading] = useState(false);
   const [resultat, setResultat] = useState(null);
   const [erreur, setErreur] = useState(null);
@@ -17,7 +18,9 @@ export default function Analyse() {
     const entreprise = searchParams.get("entreprise");
     const id = searchParams.get("id");
     const src = searchParams.get("source");
+    const lienParam = searchParams.get("lien");
     setSource(src);
+    if (lienParam) setLien(lienParam);
 
     if (!titre) return;
 
@@ -96,9 +99,19 @@ export default function Analyse() {
             </span>
           )}
           {fetchStatus === "manual" && (
-            <span style={{ fontSize: "11px", color: "#d29922", display: "flex", alignItems: "center", gap: "4px" }}>
-              <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#d29922", display: "inline-block" }} />
+            <span style={{ fontSize: "11px", color: "#d29922", display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+              <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#d29922", display: "inline-block", flexShrink: 0 }} />
               {source ? `Description non disponible pour ${source}` : "Source inconnue"} — colle-la ci-dessous
+              {lien && lien !== "#" && (
+                <a href={lien} target="_blank" rel="noopener noreferrer" style={{
+                  fontSize: "11px", padding: "1px 8px",
+                  background: "rgba(210,153,34,0.1)", border: "1px solid rgba(210,153,34,0.3)",
+                  borderRadius: "10px", color: "#d29922", textDecoration: "none",
+                  whiteSpace: "nowrap",
+                }}>
+                  Voir l'offre →
+                </a>
+              )}
             </span>
           )}
         </div>

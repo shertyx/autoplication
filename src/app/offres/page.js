@@ -353,7 +353,7 @@ export default function Offres() {
                       <button onClick={() => router.push(`/lettre?titre=${encodeURIComponent(offre.titre)}&entreprise=${encodeURIComponent(offre.entreprise)}`)} style={btnStyle("transparent", "var(--border)", "var(--accent)")}>
                         Lettre
                       </button>
-                      <button onClick={() => router.push(`/analyse?titre=${encodeURIComponent(offre.titre)}&entreprise=${encodeURIComponent(offre.entreprise)}&id=${encodeURIComponent(offre.id)}&source=${encodeURIComponent(offre.source ?? "")}`)} style={btnStyle("transparent", "var(--border)", "var(--text-secondary)")}>
+                      <button onClick={() => router.push(`/analyse?titre=${encodeURIComponent(offre.titre)}&entreprise=${encodeURIComponent(offre.entreprise)}&id=${encodeURIComponent(offre.id)}&source=${encodeURIComponent(offre.source ?? "")}&lien=${encodeURIComponent(offre.lien ?? "")}`)} style={btnStyle("transparent", "var(--border)", "var(--text-secondary)")}>
                         Analyser
                       </button>
                       <button onClick={() => mettreEnCorbeille(offre)} style={btnStyle("transparent", "rgba(248,81,73,0.3)", "var(--danger)")}>
