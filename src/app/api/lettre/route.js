@@ -1,9 +1,8 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import Groq from "groq-sdk";
 import { auth } from "@/auth";
 import { limiters, guestLimiters, checkRateLimit, getClientIp } from "@/lib/ratelimit";
 import { sanitize, badRequest } from "@/lib/validate";
 import { getProfil } from "@/services/profil";
-import { incrementGeminiQuota } from "@/services/quota";
 
 export async function POST(request) {
   try {
@@ -35,25 +34,28 @@ export async function POST(request) {
         ? `Candidat : ${session.user.name} (CV non renseigné)`
         : "Profil non renseigné.";
 
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-
-    const prompt = `Tu es expert en recrutement tech. Rédige une lettre de motivation en français.
+    const prompt = `Tu es expert en recrutement. Rédige une lettre de motivation en français.
 
 PROFIL : ${profilTexte}
 POSTE : ${poste} chez ${entreprise}
 ${offre ? `OFFRE : ${offre}` : ""}
 TON : ${ton}
 
-Rédige une lettre courte et percutante (~250 mots). Pas de formules bateau. Commence directement par le corps de la lettre sans entête postal. Termine par une formule de politesse.`;
+Rédige une lettre courte et percutante (~250 mots). Pas de formules bateau. Commence directement par le corps de la lettre sans entête postal. Termine par une formule de politesse. Réponds uniquement avec le texte de la lettre, sans commentaire.`;
 
-    const result = await model.generateContent(prompt);
-    await incrementGeminiQuota();
-    const lettre = result.response.text();
+    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+    const completion = await groq.chat.completions.create({
+      model: "llama-3.3-70b-versatile",
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.7,
+    });
+
+    const lettre = completion.choices[0]?.message?.content ?? "";
     return Response.json({ lettre });
   } catch (error) {
-    if (error.message?.includes("429")) {
-      return Response.json({ error: "Quota Gemini épuisé, réessaie demain." });
+    const msg = error?.message ?? "";
+    if (msg.includes("429") || msg.includes("rate_limit") || msg.includes("quota")) {
+      return Response.json({ error: "Quota IA épuisé, réessaie dans quelques minutes." });
     }
     return Response.json({ error: "Erreur lors de la génération." }, { status: 500 });
   }
