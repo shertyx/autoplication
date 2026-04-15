@@ -18,14 +18,13 @@ export default function Offres() {
   const router = useRouter();
   const { data: session } = useSession();
   const isAdmin = session?.user?.email === ADMIN_EMAIL;
-  const { candidatures, corbeille, postuler, mettreEnAttente, restaurerDansOffres, viderCorbeille, mettreEnCorbeille } = useApp();
+  const { candidatures, corbeille, postuler, mettreEnAttente, restaurerDansOffres, viderCorbeille, mettreEnCorbeille, analyses, removeAnalyse } = useApp();
   const [offres, setOffres] = useState([]);
   const [lastUpdate, setLastUpdate] = useState(null);
   const [scraping, setScraping] = useState(false);
   const [scrapeMsg, setScrapeMsg] = useState(null);
   const [quota, setQuota] = useState(null);
   const [resetMsg, setResetMsg] = useState(null);
-  const [analyses, setAnalyses] = useState({});
   const [filtre, setFiltre] = useState("toutes");
   const [sourceFiltre, setSourceFiltre] = useState("toutes");
   const [recherche, setRecherche] = useState("");
@@ -33,20 +32,13 @@ export default function Offres() {
   const candidatureIds = new Set(candidatures.map((c) => c.id));
   const corbeilleIds = new Set((corbeille || []).map((c) => c.id));
 
-  useEffect(() => { fetchOffres(); fetchQuota(); fetchAnalyses(); }, []);
-
-  async function fetchAnalyses() {
-    try {
-      const res = await fetch("/api/analyse/saved");
-      if (res.ok) setAnalyses(await res.json());
-    } catch {}
-  }
+  useEffect(() => { fetchOffres(); fetchQuota(); }, []);
 
   async function mettreEnCorbeilleAvecVerif(offre) {
     if (analyses[offre.id]) {
       if (!confirm(`Cette offre a été analysée (${analyses[offre.id].score}% match). La mettre à la corbeille supprimera l'analyse. Continuer ?`)) return;
       await fetch(`/api/analyse/saved?id=${encodeURIComponent(offre.id)}`, { method: "DELETE" });
-      setAnalyses((prev) => { const n = { ...prev }; delete n[offre.id]; return n; });
+      removeAnalyse(offre.id);
     }
     mettreEnCorbeille(offre);
   }

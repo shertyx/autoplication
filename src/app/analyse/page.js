@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
+import { useApp } from "@/context/AppContext";
 
 export default function Analyse() {
   const searchParams = useSearchParams();
+  const { setAnalyseForOffre } = useApp();
   const [offre, setOffre] = useState("");
   const [fetchStatus, setFetchStatus] = useState(null); // null | "loading" | "ok" | "manual"
   const [source, setSource] = useState(null);
@@ -72,6 +74,7 @@ export default function Analyse() {
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setResultat(data);
+      if (offreId) setAnalyseForOffre(offreId, data);
     } catch (e) {
       setErreur(e.message);
     } finally {

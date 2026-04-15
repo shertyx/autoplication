@@ -10,6 +10,7 @@ export function AppProvider({ children }) {
   const [candidatures, setCandidatures] = useState([]);
   const [corbeille, setCorbeille] = useState([]);
   const [hydrated, setHydrated] = useState(false);
+  const [analyses, setAnalyses] = useState({});
 
   useEffect(() => {
     if (status === "loading") return;
@@ -34,7 +35,21 @@ export function AppProvider({ children }) {
         setHydrated(true);
       })
       .catch(() => setHydrated(true));
+
+    fetch("/api/analyse/saved")
+      .then((r) => r.ok ? r.json() : {})
+      .then((data) => setAnalyses(data))
+      .catch(() => {});
   }, [status, session?.user?.email]);
+
+  function setAnalyseForOffre(offreId, data) {
+    if (!offreId) return;
+    setAnalyses((prev) => ({ ...prev, [offreId]: data }));
+  }
+
+  function removeAnalyse(offreId) {
+    setAnalyses((prev) => { const n = { ...prev }; delete n[offreId]; return n; });
+  }
 
   const save = useCallback((newCandidatures, newCorbeille) => {
     if (!session?.user?.email) {
@@ -135,6 +150,7 @@ export function AppProvider({ children }) {
       postuler, mettreEnAttente, changerStatut,
       supprimer, mettreEnCorbeille,
       restaurer, restaurerDansOffres, viderCorbeille,
+      analyses, setAnalyseForOffre, removeAnalyse,
     }}>
       {children}
     </AppContext.Provider>
