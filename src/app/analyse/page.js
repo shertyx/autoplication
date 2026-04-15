@@ -9,6 +9,7 @@ export default function Analyse() {
   const [fetchStatus, setFetchStatus] = useState(null); // null | "loading" | "ok" | "manual"
   const [source, setSource] = useState(null);
   const [lien, setLien] = useState(null);
+  const [offreId, setOffreId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [resultat, setResultat] = useState(null);
   const [erreur, setErreur] = useState(null);
@@ -17,12 +18,20 @@ export default function Analyse() {
     const titre = searchParams.get("titre");
     const entreprise = searchParams.get("entreprise");
     const id = searchParams.get("id");
+    const id = searchParams.get("id");
     const src = searchParams.get("source");
     setSource(src);
+    if (id) setOffreId(id);
     try {
-      const stored = sessionStorage.getItem("analyse_lien");
-      if (stored && stored !== "#") setLien(stored);
+      const storedLien = sessionStorage.getItem("analyse_lien");
+      if (storedLien && storedLien !== "#") setLien(storedLien);
       sessionStorage.removeItem("analyse_lien");
+
+      const storedResultat = sessionStorage.getItem("analyse_resultat");
+      if (storedResultat) {
+        setResultat(JSON.parse(storedResultat));
+        sessionStorage.removeItem("analyse_resultat");
+      }
     } catch {}
 
     if (!titre) return;
@@ -59,7 +68,7 @@ export default function Analyse() {
       const res = await fetch("/api/analyse", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ offre }),
+        body: JSON.stringify({ offre, offreId }),
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);

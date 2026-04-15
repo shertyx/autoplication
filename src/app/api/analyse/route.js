@@ -23,6 +23,7 @@ export async function POST(request) {
 
     const body = await request.json();
     const offre = sanitize(body.offre, 8000);
+    const offreId = body.offreId ?? null;
     if (!offre) return badRequest("Offre manquante");
 
     let profil = null;
@@ -57,6 +58,14 @@ Réponds UNIQUEMENT en JSON valide, sans markdown, sans backticks :
     const text = completion.choices[0]?.message?.content ?? "";
     const clean = text.replace(/```json|```/g, "").trim();
     const data = JSON.parse(clean);
+
+    if (session?.user?.email && offreId) {
+      const key = `analyses:${session.user.email}`;
+      const existing = (await redis.get(key)) ?? {};
+      existing[offreId] = data;
+      await redis.set(key, existing);
+    }
+
     return Response.json(data);
   } catch (error) {
     const msg = error?.message ?? "";

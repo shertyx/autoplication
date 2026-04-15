@@ -25,6 +25,7 @@ export default function Offres() {
   const [scrapeMsg, setScrapeMsg] = useState(null);
   const [quota, setQuota] = useState(null);
   const [resetMsg, setResetMsg] = useState(null);
+  const [analyses, setAnalyses] = useState({});
   const [filtre, setFiltre] = useState("toutes");
   const [sourceFiltre, setSourceFiltre] = useState("toutes");
   const [recherche, setRecherche] = useState("");
@@ -32,7 +33,31 @@ export default function Offres() {
   const candidatureIds = new Set(candidatures.map((c) => c.id));
   const corbeilleIds = new Set((corbeille || []).map((c) => c.id));
 
-  useEffect(() => { fetchOffres(); fetchQuota(); }, []);
+  useEffect(() => { fetchOffres(); fetchQuota(); fetchAnalyses(); }, []);
+
+  async function fetchAnalyses() {
+    try {
+      const res = await fetch("/api/analyse/saved");
+      if (res.ok) setAnalyses(await res.json());
+    } catch {}
+  }
+
+  async function mettreEnCorbeilleAvecVerif(offre) {
+    if (analyses[offre.id]) {
+      if (!confirm(`Cette offre a été analysée (${analyses[offre.id].score}% match). La mettre à la corbeille supprimera l'analyse. Continuer ?`)) return;
+      await fetch(`/api/analyse/saved?id=${encodeURIComponent(offre.id)}`, { method: "DELETE" });
+      setAnalyses((prev) => { const n = { ...prev }; delete n[offre.id]; return n; });
+    }
+    mettreEnCorbeille(offre);
+  }
+
+  function ouvrirAnalyse(offre) {
+    try { sessionStorage.setItem("analyse_lien", offre.lien ?? ""); } catch {}
+    if (analyses[offre.id]) {
+      try { sessionStorage.setItem("analyse_resultat", JSON.stringify(analyses[offre.id])); } catch {}
+    }
+    router.push(`/analyse?titre=${encodeURIComponent(offre.titre)}&entreprise=${encodeURIComponent(offre.entreprise)}&id=${encodeURIComponent(offre.id)}&source=${encodeURIComponent(offre.source ?? "")}`);
+  }
 
   async function fetchQuota() {
     try {
@@ -289,6 +314,9 @@ export default function Offres() {
           {offresFiltrees.map((offre, i) => {
             const dejaPostule = candidatureIds.has(offre.id);
             const src = SOURCE_COLORS[offre.source] ?? { color: "#8b949e", bg: "rgba(139,148,158,0.1)" };
+            const analyse = analyses[offre.id];
+            const scoreColor = analyse ? (analyse.score >= 75 ? "#3fb950" : analyse.score >= 50 ? "#d29922" : "#f85149") : null;
+            const scoreBg = analyse ? (analyse.score >= 75 ? "rgba(63,185,80,0.1)" : analyse.score >= 50 ? "rgba(210,153,34,0.1)" : "rgba(248,81,73,0.1)") : null;
 
             return (
               <div key={offre.id} className="animate-in mobile-stack" style={{
@@ -312,6 +340,15 @@ export default function Offres() {
                     </span>
                     {offre.contrat && offre.contrat !== "N/A" && (
                       <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>{offre.contrat}</span>
+                    )}
+                    {analyse && (
+                      <button onClick={() => ouvrirAnalyse(offre)} style={{
+                        fontSize: "11px", padding: "2px 8px", borderRadius: "20px",
+                        color: scoreColor, background: scoreBg, border: `1px solid ${scoreColor}33`,
+                        fontWeight: 500, cursor: "pointer",
+                      }}>
+                        {analyse.score}% match
+                      </button>
                     )}
                   </div>
                   <p style={{ fontSize: "14px", fontWeight: 500, color: "var(--text-primary)", marginBottom: "3px" }}>
@@ -338,7 +375,10 @@ export default function Offres() {
                       <button onClick={() => router.push(`/lettre?titre=${encodeURIComponent(offre.titre)}&entreprise=${encodeURIComponent(offre.entreprise)}`)} style={btnStyle("transparent", "var(--border)", "var(--text-secondary)")}>
                         Lettre
                       </button>
-                      <button onClick={() => mettreEnCorbeille(offre)} style={btnStyle("transparent", "rgba(248,81,73,0.3)", "var(--danger)")}>
+                      <button onClick={() => ouvrirAnalyse(offre)} style={btnStyle("transparent", "var(--border)", "var(--text-secondary)")}>
+                        {analyse ? "Voir l'analyse" : "Analyser"}
+                      </button>
+                      <button onClick={() => mettreEnCorbeilleAvecVerif(offre)} style={btnStyle("transparent", "rgba(248,81,73,0.3)", "var(--danger)")}>
                         Corbeille
                       </button>
                     </>
@@ -353,10 +393,10 @@ export default function Offres() {
                       <button onClick={() => router.push(`/lettre?titre=${encodeURIComponent(offre.titre)}&entreprise=${encodeURIComponent(offre.entreprise)}`)} style={btnStyle("transparent", "var(--border)", "var(--accent)")}>
                         Lettre
                       </button>
-                      <button onClick={() => (() => { try { sessionStorage.setItem("analyse_lien", offre.lien ?? ""); } catch {} router.push(`/analyse?titre=${encodeURIComponent(offre.titre)}&entreprise=${encodeURIComponent(offre.entreprise)}&id=${encodeURIComponent(offre.id)}&source=${encodeURIComponent(offre.source ?? "")}`); })()} style={btnStyle("transparent", "var(--border)", "var(--text-secondary)")}>
-                        Analyser
+                      <button onClick={() => ouvrirAnalyse(offre)} style={btnStyle("transparent", "var(--border)", "var(--text-secondary)")}>
+                        {analyse ? "Voir l'analyse" : "Analyser"}
                       </button>
-                      <button onClick={() => mettreEnCorbeille(offre)} style={btnStyle("transparent", "rgba(248,81,73,0.3)", "var(--danger)")}>
+                      <button onClick={() => mettreEnCorbeilleAvecVerif(offre)} style={btnStyle("transparent", "rgba(248,81,73,0.3)", "var(--danger)")}>
                         Corbeille
                       </button>
                     </>
