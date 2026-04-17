@@ -1,9 +1,16 @@
-// Extract unique France Travail department codes from a comma-separated
-// string of French postal codes (e.g. "75001,59000" → ["75","59"]).
+// Extract 5-digit postal codes from the stored ville string.
+// Handles both "Paris - 75001" (new format) and raw "75001" (legacy).
+function extractPostalCodes(villeStr) {
+  if (!villeStr?.trim()) return [];
+  return villeStr.split(",")
+    .map((s) => s.trim().match(/\d{5}/)?.[0])
+    .filter(Boolean);
+}
+
+// Extract unique France Travail department codes from the stored ville string.
 // Special cases: Corsica (20xxx → 2A/2B), DOM-TOM (97x → 3 digits).
 export function getDeptsFromPostalCodes(villeStr) {
-  if (!villeStr?.trim()) return [];
-  const codes = villeStr.split(",").map((s) => s.trim()).filter((s) => /^\d{5}$/.test(s));
+  const codes = extractPostalCodes(villeStr);
   const depts = [...new Set(codes.map((pc) => {
     if (pc.startsWith("971") || pc.startsWith("972") || pc.startsWith("973") ||
         pc.startsWith("974") || pc.startsWith("976")) return pc.slice(0, 3);
@@ -15,9 +22,11 @@ export function getDeptsFromPostalCodes(villeStr) {
 }
 
 // Returns the location string for JSearch / Google Jobs queries.
-// Uses the postal codes themselves for better matching.
 export function getLocationLabel(villeStr) {
   if (!villeStr?.trim()) return "France";
-  const codes = villeStr.split(",").map((s) => s.trim()).filter(Boolean);
-  return codes.slice(0, 2).join(", ") + ", France";
+  // Use city names if available (e.g. "Paris - 75001" → "Paris"), else raw codes
+  const labels = villeStr.split(",")
+    .map((s) => s.trim().split(" - ")[0].trim())
+    .filter(Boolean);
+  return labels.slice(0, 2).join(", ") + ", France";
 }

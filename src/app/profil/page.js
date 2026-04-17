@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { getGuestId } from "@/lib/guestId";
 import Link from "next/link";
@@ -18,6 +18,10 @@ export default function Profil() {
   const [deleting, setDeleting] = useState(false);
   const [parsing, setParsing] = useState(false);
   const [cpInput, setCpInput] = useState("");
+  const [suggestions, setSuggestions] = useState([]);
+  const [sugLoading, setSugLoading] = useState(false);
+  const debounceRef = useRef(null);
+  const sugRef = useRef(null);
   const [parseError, setParseError] = useState(null);
 
   useEffect(() => {
@@ -97,27 +101,57 @@ export default function Profil() {
     }
   }
 
-  const codesPostaux = ville ? ville.split(",").map((s) => s.trim()).filter(Boolean) : [];
+  const zones = ville ? ville.split(",").map((s) => s.trim()).filter(Boolean) : [];
 
-  function addCp(raw) {
-    const cp = raw.trim().replace(/\s/g, "");
-    if (!/^\d{5}$/.test(cp)) return; // must be exactly 5 digits
-    if (codesPostaux.includes(cp)) return;
-    setVille([...codesPostaux, cp].join(","));
+  function addZone(label) {
+    if (!label) return;
+    if (zones.includes(label)) { setCpInput(""); setSuggestions([]); return; }
+    setVille([...zones, label].join(","));
     setCpInput("");
+    setSuggestions([]);
   }
 
-  function removeCp(cp) {
-    setVille(codesPostaux.filter((c) => c !== cp).join(","));
+  function removeZone(z) {
+    setVille(zones.filter((c) => c !== z).join(","));
   }
 
   function handleCpKeyDown(e) {
-    if (e.key === "Enter" || e.key === "," || e.key === " ") {
+    if (e.key === "Escape") { setSuggestions([]); return; }
+    if (e.key === "Enter") {
       e.preventDefault();
-      addCp(cpInput);
-    } else if (e.key === "Backspace" && cpInput === "" && codesPostaux.length > 0) {
-      removeCp(codesPostaux[codesPostaux.length - 1]);
+      if (suggestions.length > 0) { addZone(suggestions[0].label); return; }
+      // fallback: raw 5-digit postal code
+      const cp = cpInput.trim();
+      if (/^\d{5}$/.test(cp)) addZone(cp);
+    } else if (e.key === "Backspace" && cpInput === "" && zones.length > 0) {
+      removeZone(zones[zones.length - 1]);
     }
+  }
+
+  function handleCpChange(e) {
+    const val = e.target.value;
+    setCpInput(val);
+    setSuggestions([]);
+    if (!val.trim() || val.trim().length < 2) return;
+    clearTimeout(debounceRef.current);
+    setSugLoading(true);
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `https://geo.api.gouv.fr/communes?nom=${encodeURIComponent(val.trim())}&fields=nom,codesPostaux&boost=population&limit=8`
+        );
+        const data = await res.json();
+        setSuggestions(
+          (data || []).flatMap((c) =>
+            (c.codesPostaux || []).slice(0, 1).map((cp) => ({
+              label: `${c.nom} - ${cp}`,
+              display: `${c.nom} (${cp})`,
+            }))
+          ).slice(0, 8)
+        );
+      } catch { setSuggestions([]); }
+      finally { setSugLoading(false); }
+    }, 280);
   }
 
   const label = { fontSize: "11px", color: "var(--text-muted)", display: "block", marginBottom: "6px", textTransform: "uppercase", letterSpacing: "0.06em" };
@@ -133,7 +167,7 @@ export default function Profil() {
   const missing = [
     !nom.trim() && "Nom complet",
     !poste.trim() && "Poste recherché",
-    !ville.trim() && "Code postal",
+    !ville.trim() && "Ville / Zone",
     cv.trim().length <= 100 && "CV (100+ caractères)",
   ].filter(Boolean);
 
@@ -224,8 +258,8 @@ export default function Profil() {
               style={{ width: "100%" }}
             />
           </div>
-          <div>
-            <label style={label}>Code(s) postal(aux)</label>
+          <div style={{ position: "relative" }} ref={sugRef}>
+            <label style={label}>Zone(s) de recherche</label>
             <div
               onClick={() => document.getElementById("cp-input").focus()}
               style={{
@@ -235,38 +269,71 @@ export default function Profil() {
                 borderRadius: "6px", cursor: "text", boxSizing: "border-box",
               }}
             >
-              {codesPostaux.map((cp) => (
-                <span key={cp} style={{
+              {zones.map((z) => (
+                <span key={z} style={{
                   display: "inline-flex", alignItems: "center", gap: "4px",
                   background: "var(--bg-tertiary)", border: "1px solid var(--border)",
                   borderRadius: "4px", padding: "2px 8px", fontSize: "12px",
                   color: "var(--text-primary)", whiteSpace: "nowrap",
                 }}>
-                  {cp}
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); removeCp(cp); }}
-                    style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: 0, lineHeight: 1, fontSize: "14px" }}
-                  >×</button>
+                  {z}
+                  <button type="button" onClick={(e) => { e.stopPropagation(); removeZone(z); }}
+                    style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: 0, lineHeight: 1, fontSize: "14px" }}>×</button>
                 </span>
               ))}
               <input
                 id="cp-input"
                 value={cpInput}
-                onChange={(e) => setCpInput(e.target.value)}
+                onChange={handleCpChange}
                 onKeyDown={handleCpKeyDown}
-                onBlur={() => addCp(cpInput)}
-                placeholder={codesPostaux.length === 0 ? "75001, 59000..." : ""}
-                maxLength={5}
+                onBlur={() => setTimeout(() => setSuggestions([]), 150)}
+                placeholder={zones.length === 0 ? "Paris, Lille, 59000..." : ""}
                 style={{
                   border: "none", outline: "none", background: "transparent",
-                  fontSize: "13px", color: "var(--text-primary)", width: "80px",
-                  minWidth: "60px", padding: "2px 0",
+                  fontSize: "13px", color: "var(--text-primary)",
+                  flex: "1", minWidth: "100px", padding: "2px 0",
                 }}
               />
+              {cpInput.trim().length > 0 && (
+                <button type="button"
+                  onClick={() => {
+                    if (suggestions.length > 0) addZone(suggestions[0].label);
+                    else if (/^\d{5}$/.test(cpInput.trim())) addZone(cpInput.trim());
+                  }}
+                  style={{
+                    background: "#238636", border: "1px solid #2ea043", borderRadius: "4px",
+                    color: "#fff", cursor: "pointer", fontSize: "16px", lineHeight: 1,
+                    padding: "1px 7px", flexShrink: 0,
+                  }}>+</button>
+              )}
             </div>
+            {(suggestions.length > 0 || sugLoading) && (
+              <div style={{
+                position: "absolute", top: "100%", left: 0, right: 0, zIndex: 50,
+                background: "var(--bg-secondary)", border: "1px solid var(--border)",
+                borderRadius: "6px", marginTop: "4px", overflow: "hidden",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+              }}>
+                {sugLoading && (
+                  <div style={{ padding: "10px 12px", fontSize: "12px", color: "var(--text-muted)" }}>Recherche…</div>
+                )}
+                {suggestions.map((s) => (
+                  <button key={s.label} type="button"
+                    onMouseDown={(e) => { e.preventDefault(); addZone(s.label); }}
+                    style={{
+                      display: "block", width: "100%", textAlign: "left",
+                      padding: "8px 12px", background: "none", border: "none",
+                      borderBottom: "1px solid var(--border)", cursor: "pointer",
+                      fontSize: "13px", color: "var(--text-primary)",
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-tertiary)"}
+                    onMouseLeave={(e) => e.currentTarget.style.background = "none"}
+                  >{s.display}</button>
+                ))}
+              </div>
+            )}
             <p style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "4px", marginBottom: 0 }}>
-              Tape un code postal + Entrée. Plusieurs zones possibles.
+              Tape une ville ou un code postal, sélectionne dans la liste. Plusieurs zones possibles.
             </p>
           </div>
         </div>
