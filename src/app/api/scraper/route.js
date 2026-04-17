@@ -100,7 +100,7 @@ async function generateKeywords(profil, userEmail) {
   if (!profil?.poste) return null;
 
   // Cache Redis basé sur le poste — évite de rappeler Gemini à chaque scraping
-  const cacheKey = `keywords_v2:${userEmail}:${Buffer.from(profil.poste).toString("base64").slice(0, 20)}`;
+  const cacheKey = `keywords_v3:${userEmail}:${Buffer.from(profil.poste).toString("base64").slice(0, 20)}`;
   const cached = await redis.get(cacheKey);
   if (Array.isArray(cached) && cached.length > 0) {
     console.log(`[KEYWORDS] Cache: ${cached.join(", ")}`);
@@ -110,11 +110,9 @@ async function generateKeywords(profil, userEmail) {
   // Appel Groq (une seule fois, puis mis en cache 7 jours)
   try {
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY }); // instancié à la demande, pas au module
-    const prompt = `Tu es un expert RH. Génère 5 intitulés de poste variés (français ET anglais) pour trouver un maximum d'offres d'emploi pour ce profil. Les intitulés doivent être directement liés au poste indiqué.
-Poste : ${profil.poste}
-${profil.cv ? `CV (extrait) : ${profil.cv.slice(0, 500)}` : ""}
-
-Réponds UNIQUEMENT avec un tableau JSON de 5 strings, sans markdown, sans explication. Exemple pour "cuisinier": ["Cuisinier","Chef de cuisine","Commis de cuisine","Cook","Kitchen Chef"]`;
+    const prompt = `Tu es un expert RH. Génère 5 intitulés de poste variés (français ET anglais) qui sont des synonymes ou variantes proches de : "${profil.poste}".
+${profil.cv ? `Contexte CV : ${profil.cv.slice(0, 300)}` : ""}
+Réponds UNIQUEMENT avec un tableau JSON de 5 strings. Ne génère QUE des variantes de "${profil.poste}". Format : ["variante1","variante2","variante3","variante4","variante5"]`;
     const completion = await groq.chat.completions.create({
       model: "llama-3.1-8b-instant",
       messages: [{ role: "user", content: prompt }],
@@ -233,7 +231,7 @@ async function scrapeJSearch(keywords, location) {
   }
   const results = await Promise.all(keywords.map(async (keyword) => {
     try {
-      const url = `https://jsearch.p.rapidapi.com/search?query=${encodeURIComponent(keyword + " " + location)}&page=1&num_pages=2&country=fr`;
+      const url = `https://jsearch.p.rapidapi.com/search?query=${encodeURIComponent(keyword + " " + location)}&page=1&num_pages=2`;
       const res = await fetch(url, {
         headers: {
           "X-RapidAPI-Key": process.env.JSEARCH_API_KEY,
