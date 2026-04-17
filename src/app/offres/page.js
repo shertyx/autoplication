@@ -69,7 +69,7 @@ export default function Offres() {
   }
 
   async function fetchOffres() {
-    const res = await fetch("/api/offres");
+    const res = await fetch("/api/offres", { headers: { "x-guest-id": getGuestId() } });
     const data = await res.json();
     setOffres(data.offres || []);
     setLastUpdate(data.last_update);

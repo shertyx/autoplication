@@ -1,10 +1,10 @@
 import { auth } from "@/auth";
-import { getClientIp } from "@/lib/ratelimit";
+import { getGuestKey } from "@/lib/ratelimit";
 import { getOffres } from "@/services/offres";
 
 export async function GET(request) {
   const session = await auth();
-  const userKey = session?.user?.email ?? `ip:${getClientIp(request)}`;
+  const userKey = session?.user?.email ?? getGuestKey(request);
 
   try {
     const data = await getOffres(userKey);
