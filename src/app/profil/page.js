@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { getGuestId } from "@/lib/guestId";
+import { VILLES } from "@/lib/villes";
 import Link from "next/link";
 
 export default function Profil() {
@@ -202,12 +203,16 @@ export default function Profil() {
           </div>
           <div>
             <label style={label}>Ville</label>
-            <input
-              placeholder="Lille, Paris..."
+            <select
               value={ville}
               onChange={(e) => setVille(e.target.value)}
               style={{ width: "100%" }}
-            />
+            >
+              <option value="">— Choisir une ville —</option>
+              {VILLES.map((v) => (
+                <option key={v.label} value={v.label}>{v.label}</option>
+              ))}
+            </select>
           </div>
         </div>
       </div>

@@ -3,6 +3,7 @@ import { limiters, guestLimiters, checkRateLimit, getGuestKey } from "@/lib/rate
 import redis from "@/lib/redis";
 import Groq from "groq-sdk";
 import { getProfil } from "@/services/profil";
+import { getDeptFromVille } from "@/lib/villes";
 import { saveOffres } from "@/services/offres";
 import {
   incrementFranceTravailQuota,
@@ -163,15 +164,16 @@ async function getTokenFT() {
   return data.access_token;
 }
 
-async function scrapeFranceTravail(token, keywords, location) {
+async function scrapeFranceTravail(token, keywords, location, dept) {
   if (!token) {
     console.error("[FT] Token manquant, skip.");
     return [];
   }
+  const deptParam = dept ? `&departement=${dept}` : "";
   const results = await Promise.all(keywords.map(async (keyword) => {
     try {
       const res = await fetch(
-        `https://api.francetravail.io/partenaire/offresdemploi/v2/offres/search?motsCles=${encodeURIComponent(keyword)}&nbResultats=20`,
+        `https://api.francetravail.io/partenaire/offresdemploi/v2/offres/search?motsCles=${encodeURIComponent(keyword)}&nbResultats=20${deptParam}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       await incrementFranceTravailQuota();
@@ -318,9 +320,11 @@ export async function POST(request) {
 
     console.log(`[SCRAPER] User: ${userKey} | Keywords: ${keywords.join(", ")} | Location: ${location}`);
 
+    const dept = getDeptFromVille(profil?.ville);
+    console.log(`[SCRAPER] dept=${dept ?? "nationwide"}`);
     const token = await getTokenFT();
     const [ftOffres, gjOffres, jsOffres] = await Promise.all([
-      scrapeFranceTravail(token, keywords, location),
+      scrapeFranceTravail(token, keywords, location, dept),
       scrapeGoogleJobs(keywords, location),
       scrapeJSearch(keywords, location),
     ]);
