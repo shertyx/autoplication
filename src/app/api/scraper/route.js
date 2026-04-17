@@ -100,7 +100,7 @@ async function generateKeywords(profil, userEmail) {
   if (!profil?.poste) return null;
 
   // Cache Redis basé sur le poste — évite de rappeler Gemini à chaque scraping
-  const cacheKey = `keywords_v3:${userEmail}:${Buffer.from(profil.poste).toString("base64").slice(0, 20)}`;
+  const cacheKey = `keywords_v4:${userEmail}:${Buffer.from(profil.poste).toString("base64").slice(0, 20)}`;
   const cached = await redis.get(cacheKey);
   if (Array.isArray(cached) && cached.length > 0) {
     console.log(`[KEYWORDS] Cache: ${cached.join(", ")}`);
@@ -119,8 +119,13 @@ Réponds UNIQUEMENT avec un tableau JSON de 5 strings. Ne génère QUE des varia
       temperature: 0.3,
     });
     const text = (completion.choices[0]?.message?.content ?? "").replace(/```json|```/g, "").trim();
-    const keywords = JSON.parse(text);
-    if (Array.isArray(keywords) && keywords.length > 0) {
+    console.log(`[KEYWORDS] Groq raw: ${text.slice(0, 200)}`);
+    const parsed = JSON.parse(text);
+    // Normalize: extract strings whether Groq returns ["str"] or [{"title":"str"}] etc.
+    const keywords = Array.isArray(parsed)
+      ? parsed.map((k) => (typeof k === "string" ? k : Object.values(k)[0] ?? "")).filter(Boolean)
+      : [];
+    if (keywords.length > 0) {
       console.log(`[KEYWORDS] IA: ${keywords.join(", ")}`);
       await redis.set(cacheKey, keywords, { ex: 60 * 60 * 24 * 7 }); // cache 7 jours
       return keywords;
