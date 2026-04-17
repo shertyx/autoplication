@@ -322,7 +322,7 @@ export async function POST(request) {
       scrapeJSearch(keywords, location),
     ]);
 
-    console.log(`[SCRAPER] FT=${ftOffres.length} GJ=${gjOffres.length} JS=${jsOffres.length}`);
+    console.log(`[SCRAPER] FT=${ftOffres.length} GJ=${gjOffres.length} JS=${jsOffres.length} | keywords=${keywords.join(",")} | location=${location}`);
     await saveFranceTravailCount(ftOffres.length);
     const all = [...ftOffres, ...gjOffres, ...jsOffres];
     const seen = new Set();
@@ -340,8 +340,9 @@ export async function POST(request) {
 
     await saveOffres(userKey, payload);
 
-    return Response.json({ success: true, total: unique.length });
+    return Response.json({ success: true, total: unique.length, debug: { ft: ftOffres.length, gj: gjOffres.length, js: jsOffres.length, keywords } });
   } catch (error) {
-    return Response.json({ success: false, error: "Erreur lors du scraping." }, { status: 500 });
+    console.error("[SCRAPER] Exception:", error?.message, error?.stack?.slice(0, 300));
+    return Response.json({ success: false, error: "Erreur lors du scraping.", detail: error?.message }, { status: 500 });
   }
 }
