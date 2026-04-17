@@ -22,6 +22,8 @@ export default function Profil() {
   const [sugLoading, setSugLoading] = useState(false);
   const debounceRef = useRef(null);
   const sugRef = useRef(null);
+  const suggestionsRef = useRef([]);
+  useEffect(() => { suggestionsRef.current = suggestions; }, [suggestions]);
   const [parseError, setParseError] = useState(null);
 
   useEffect(() => {
@@ -119,10 +121,11 @@ export default function Profil() {
     if (e.key === "Escape") { setSuggestions([]); return; }
     if (e.key === "Enter") {
       e.preventDefault();
-      if (suggestions.length > 0) { addZone(suggestions[0].label); return; }
-      // fallback: raw 5-digit postal code
+      const current = suggestionsRef.current; // always up-to-date, avoids stale closure
+      if (current.length > 0) { addZone(current[0].label); return; }
       const cp = cpInput.trim();
       if (/^\d{5}$/.test(cp)) addZone(cp);
+      else if (cp.length > 1) addZone(cp); // allow city name typed manually
     } else if (e.key === "Backspace" && cpInput === "" && zones.length > 0) {
       removeZone(zones[zones.length - 1]);
     }
@@ -138,7 +141,7 @@ export default function Profil() {
     debounceRef.current = setTimeout(async () => {
       try {
         const res = await fetch(
-          `https://geo.api.gouv.fr/communes?nom=${encodeURIComponent(val.trim())}&fields=nom,codesPostaux&boost=population&limit=8`
+          `https://geo.api.gouv.fr/communes?nom=${encodeURIComponent(val.trim())}&fields=nom,codesPostaux&boost=population&limit=15`
         );
         const data = await res.json();
         setSuggestions(
@@ -260,63 +263,54 @@ export default function Profil() {
           </div>
           <div style={{ position: "relative" }} ref={sugRef}>
             <label style={label}>Zone(s) de recherche</label>
-            <div
-              onClick={() => document.getElementById("cp-input").focus()}
-              style={{
-                display: "flex", flexWrap: "wrap", gap: "6px", alignItems: "center",
-                width: "100%", minHeight: "36px", padding: "4px 8px",
-                background: "var(--bg-primary)", border: "1px solid var(--border)",
-                borderRadius: "6px", cursor: "text", boxSizing: "border-box",
-              }}
-            >
-              {zones.map((z) => (
-                <span key={z} style={{
-                  display: "inline-flex", alignItems: "center", gap: "4px",
-                  background: "var(--bg-tertiary)", border: "1px solid var(--border)",
-                  borderRadius: "4px", padding: "2px 8px", fontSize: "12px",
-                  color: "var(--text-primary)", whiteSpace: "nowrap",
-                }}>
-                  {z}
-                  <button type="button" onClick={(e) => { e.stopPropagation(); removeZone(z); }}
-                    style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: 0, lineHeight: 1, fontSize: "14px" }}>×</button>
-                </span>
-              ))}
+            {zones.length > 0 && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "5px", marginBottom: "6px" }}>
+                {zones.map((z) => (
+                  <span key={z} style={{
+                    display: "inline-flex", alignItems: "center", gap: "4px",
+                    background: "var(--bg-tertiary)", border: "1px solid var(--border)",
+                    borderRadius: "4px", padding: "2px 8px", fontSize: "12px", color: "var(--text-primary)",
+                  }}>
+                    {z}
+                    <button type="button" onClick={() => removeZone(z)}
+                      style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: 0, lineHeight: 1, fontSize: "14px" }}>×</button>
+                  </span>
+                ))}
+              </div>
+            )}
+            <div style={{ display: "flex", gap: "6px" }}>
               <input
                 id="cp-input"
                 value={cpInput}
                 onChange={handleCpChange}
                 onKeyDown={handleCpKeyDown}
                 onBlur={() => setTimeout(() => setSuggestions([]), 150)}
-                placeholder={zones.length === 0 ? "Paris, Lille, 59000..." : ""}
-                style={{
-                  border: "none", outline: "none", background: "transparent",
-                  fontSize: "13px", color: "var(--text-primary)",
-                  flex: "1", minWidth: "100px", padding: "2px 0",
-                }}
+                placeholder="Paris, Lille, 59000..."
+                style={{ flex: 1, width: "100%" }}
               />
               {cpInput.trim().length > 0 && (
                 <button type="button"
-                  onClick={() => {
-                    if (suggestions.length > 0) addZone(suggestions[0].label);
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    const cur = suggestionsRef.current;
+                    if (cur.length > 0) addZone(cur[0].label);
                     else if (/^\d{5}$/.test(cpInput.trim())) addZone(cpInput.trim());
+                    else addZone(cpInput.trim());
                   }}
                   style={{
-                    background: "#238636", border: "1px solid #2ea043", borderRadius: "4px",
-                    color: "#fff", cursor: "pointer", fontSize: "16px", lineHeight: 1,
-                    padding: "1px 7px", flexShrink: 0,
+                    background: "#238636", border: "1px solid #2ea043", borderRadius: "6px",
+                    color: "#fff", cursor: "pointer", fontSize: "16px", fontWeight: 600,
+                    padding: "0 12px", flexShrink: 0, height: "36px",
                   }}>+</button>
               )}
             </div>
             {(suggestions.length > 0 || sugLoading) && (
               <div style={{
-                position: "absolute", top: "100%", left: 0, right: 0, zIndex: 50,
+                position: "absolute", top: "calc(100% + 2px)", left: 0, right: 0, zIndex: 50,
                 background: "var(--bg-secondary)", border: "1px solid var(--border)",
-                borderRadius: "6px", marginTop: "4px", overflow: "hidden",
-                boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+                borderRadius: "6px", overflow: "hidden", boxShadow: "0 4px 16px rgba(0,0,0,0.35)",
               }}>
-                {sugLoading && (
-                  <div style={{ padding: "10px 12px", fontSize: "12px", color: "var(--text-muted)" }}>Recherche…</div>
-                )}
+                {sugLoading && <div style={{ padding: "10px 12px", fontSize: "12px", color: "var(--text-muted)" }}>Recherche…</div>}
                 {suggestions.map((s) => (
                   <button key={s.label} type="button"
                     onMouseDown={(e) => { e.preventDefault(); addZone(s.label); }}
@@ -332,9 +326,6 @@ export default function Profil() {
                 ))}
               </div>
             )}
-            <p style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "4px", marginBottom: 0 }}>
-              Tape une ville ou un code postal, sélectionne dans la liste. Plusieurs zones possibles.
-            </p>
           </div>
         </div>
       </div>
