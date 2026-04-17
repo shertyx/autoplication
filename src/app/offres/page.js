@@ -94,7 +94,15 @@ export default function Offres() {
     setScraping(true);
     setScrapeMsg(null);
     try {
-      const res = await fetch("/api/scraper", { method: "POST" });
+      let guestProfil = null;
+      if (!session?.user?.email) {
+        try { guestProfil = JSON.parse(localStorage.getItem("applify_profil") || "{}"); } catch {}
+      }
+      const res = await fetch("/api/scraper", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(guestProfil ? { guestProfil } : {}),
+      });
       const data = await res.json();
       if (data.success) {
         setScrapeMsg("Scraping terminé !");

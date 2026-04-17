@@ -290,7 +290,11 @@ export async function POST(request) {
   }
 
   try {
-    const profil = session?.user?.email ? await getProfil(session.user.email) : null;
+    let body = {};
+    try { body = await request.json(); } catch {}
+    const profil = session?.user?.email
+      ? await getProfil(session.user.email)
+      : (body.guestProfil ?? null);
 
     const cvLen = profil?.cv?.trim()?.length ?? 0;
     const completion =
